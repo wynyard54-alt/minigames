@@ -33,14 +33,28 @@ app.get('/api/qr', async (req, res) => {
 });
 
 // 선생님이 노트북에서 localhost로 열었을 때, QR에 넣을 같은 와이파이 주소를 알려준다
-app.get('/api/lan', (req, res) => {
-  const ips = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const ni of list || []) {
-      if (ni.family === 'IPv4' && !ni.internal) ips.push(ni.address);
+// 와이파이 주소를 먼저, VPN·가상 장치 주소는 뒤로 (윈도우 노트북에는 이런 장치가 많다)
+function lanAddresses() {
+  const virtual = /vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|tailscale|zerotier|vpn|tap|tun|utun|bridge/i;
+  const wifi = /wi-?fi|wlan|wireless|무선|en0|wl/i;
+  const list = [];
+  for (const [name, nis] of Object.entries(os.networkInterfaces())) {
+    for (const ni of nis || []) {
+      if (ni.family !== 'IPv4' || ni.internal || ni.address.startsWith('169.254.')) continue;
+      let score = 0;
+      if (wifi.test(name)) score += 4;
+      if (virtual.test(name)) score -= 10;
+      if (ni.address.startsWith('192.168.')) score += 2;
+      else if (ni.address.startsWith('10.')) score += 1;
+      list.push({ name, address: ni.address, score });
     }
   }
-  res.json({ ips, port: PORT });
+  return list.sort((a, b) => b.score - a.score);
+}
+
+app.get('/api/lan', (req, res) => {
+  const list = lanAddresses();
+  res.json({ ips: list.map((x) => x.address), list: list.map(({ name, address }) => ({ name, address })), port: PORT });
 });
 
 app.get('/healthz', (req, res) => res.send('ok'));
@@ -437,9 +451,28 @@ setInterval(() => {
   }
 }, 15 * 1000);
 
+// 실행 파일로 켰을 때 선생님 화면을 기본 브라우저로 연다
+function openBrowser(url) {
+  const { exec } = require('child_process');
+  const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
+
 if (require.main === module) {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`\n${PORT}번 포트를 이미 쓰고 있어요. 게임 서버가 이미 켜져 있는지 확인해 주세요.`);
+      console.log(`이미 켜져 있다면 브라우저에서 http://localhost:${PORT} 를 열면 돼요.\n`);
+      if (process.env.OPEN_BROWSER) openBrowser(`http://localhost:${PORT}`);
+      setTimeout(() => process.exit(1), 15000);
+    } else throw err;
+  });
   server.listen(PORT, () => {
     console.log(`게임 서버 실행 중: http://localhost:${PORT}`);
+    const lan = lanAddresses();
+    if (lan.length) console.log(`학생 폰 접속 주소: http://${lan[0].address}:${PORT}/play.html`);
+    console.log('이 창을 닫으면 게임 서버가 꺼져요. 수업이 끝날 때까지 열어 두세요.');
+    if (process.env.OPEN_BROWSER) openBrowser(`http://localhost:${PORT}`);
   });
 }
 

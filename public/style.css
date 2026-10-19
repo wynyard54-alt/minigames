@@ -69,6 +69,20 @@ body {
   color: var(--gold);
   font-size: 15px;
 }
+.lan-label {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.lan-pick {
+  margin-top: 4px;
+  max-width: 100%;
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid #343c62;
+}
 .error {
   color: var(--red);
   min-height: 1.2em;

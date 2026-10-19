@@ -64,13 +64,48 @@
       try {
         const info = await (await fetch('/api/lan')).json();
         if (info.ips.length) {
-          base = `http://${info.ips[0]}:${location.port || info.port}`;
-          $('lanWarn').textContent = '학생 폰이 이 컴퓨터와 같은 와이파이에 연결되어 있어야 해요.';
+          let saved = null;
+          try {
+            saved = localStorage.getItem('mg:lan');
+          } catch {}
+          const ip = info.ips.includes(saved) ? saved : info.ips[0];
+          base = `http://${ip}:${location.port || info.port}`;
+          showLanPicker(info.list, ip);
+        } else {
+          $('lanWarn').textContent = '네트워크에 연결되어 있지 않아요. 와이파이나 핫스팟에 연결해 주세요.';
           $('lanWarn').classList.remove('hidden');
         }
       } catch {}
     }
     return `${base}/play.html?room=${room.code}`;
+  }
+
+  // 노트북에 네트워크 장치가 여러 개면(VPN 등) 학생이 접속할 주소를 고를 수 있게 한다
+  function showLanPicker(list, current) {
+    const warn = $('lanWarn');
+    warn.classList.remove('hidden');
+    warn.innerHTML = '학생 폰이 이 컴퓨터와 같은 와이파이(또는 핫스팟)에 연결되어 있어야 해요.';
+    if (list.length < 2) return;
+    const sel = document.createElement('select');
+    sel.className = 'lan-pick';
+    sel.setAttribute('aria-label', '학생이 접속할 주소');
+    for (const x of list) {
+      const o = document.createElement('option');
+      o.value = x.address;
+      o.textContent = `${x.address} (${x.name})`;
+      o.selected = x.address === current;
+      sel.appendChild(o);
+    }
+    sel.onchange = () => {
+      try {
+        localStorage.setItem('mg:lan', sel.value);
+      } catch {}
+      enterLobby();
+    };
+    const label = document.createElement('div');
+    label.className = 'lan-label';
+    label.textContent = 'QR이 안 되면 다른 주소를 골라 보세요:';
+    warn.append(label, sel);
   }
 
   async function enterLobby() {
