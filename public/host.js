@@ -97,7 +97,7 @@
     const players = lobby.players;
     for (const team of ['red', 'blue']) {
       const list = players.filter((p) => p.team === team);
-      $(team + 'Count').textContent = list.length + '명';
+      $(team + 'Count').textContent = `${list.length} / ${lobby.teamMax}명`;
       $(team + 'List').innerHTML = list
         .map(
           (p) =>
@@ -115,6 +115,9 @@
     $('readyInfo').textContent =
       (total === 0 ? '학생을 기다리는 중…' : `준비 완료 ${ready} / ${total}명`) + (bots ? ` · AI ${bots}명` : '');
     $('clearBotsBtn').disabled = bots === 0;
+    const count = (t) => players.filter((p) => p.team === t).length;
+    $('addRedBot').disabled = count('red') >= lobby.teamMax;
+    $('addBlueBot').disabled = count('blue') >= lobby.teamMax;
     $('startBtn').textContent = total > 0 && ready === total ? '게임 시작!' : '게임 시작';
     $('startBtn').classList.toggle('pulse', total > 0 && ready === total);
   }
@@ -129,7 +132,25 @@
   }
 
   $('shuffleBtn').onclick = () => socket.emit('host:shuffle');
-  $('fillBotsBtn').onclick = () => socket.emit('host:bots', { action: 'fill' });
+  // AI로 맞출 팀당 인원 (1~8, 마지막에 고른 값 기억)
+  let botSize = 4;
+  try {
+    botSize = Number(localStorage.getItem('mg:botSize')) || 4;
+  } catch {}
+  function setBotSize(n) {
+    const max = (lobby && lobby.teamMax) || 8;
+    botSize = Math.max(1, Math.min(max, n));
+    $('sizeVal').textContent = botSize;
+    $('sizeDown').disabled = botSize <= 1;
+    $('sizeUp').disabled = botSize >= max;
+    try {
+      localStorage.setItem('mg:botSize', String(botSize));
+    } catch {}
+  }
+  setBotSize(botSize);
+  $('sizeDown').onclick = () => setBotSize(botSize - 1);
+  $('sizeUp').onclick = () => setBotSize(botSize + 1);
+  $('fillBotsBtn').onclick = () => socket.emit('host:bots', { action: 'fill', size: botSize });
   $('addRedBot').onclick = () => socket.emit('host:bots', { action: 'add', team: 'red' });
   $('addBlueBot').onclick = () => socket.emit('host:bots', { action: 'add', team: 'blue' });
   $('clearBotsBtn').onclick = () => socket.emit('host:bots', { action: 'clear' });

@@ -100,9 +100,15 @@
     if (!joined || !me) return;
     const mine = data.players.find((p) => p.id === me.id);
     if (!mine) return;
-    $('pickRed').textContent = data.players.filter((p) => p.team === 'red').length + '명';
-    $('pickBlue').textContent = data.players.filter((p) => p.team === 'blue').length + '명';
-    for (const b of document.querySelectorAll('.team-btn')) b.classList.toggle('selected', b.dataset.team === mine.team);
+    for (const b of document.querySelectorAll('.team-btn')) {
+      const team = b.dataset.team;
+      const members = data.players.filter((p) => p.team === team);
+      // 꽉 찬 팀은 고를 수 없다 (AI가 있으면 AI와 자리를 바꾼다)
+      const full = members.length >= data.teamMax && !members.some((p) => p.bot) && mine.team !== team;
+      $(team === 'red' ? 'pickRed' : 'pickBlue').textContent = full ? '꽉 찼어요' : `${members.length} / ${data.teamMax}명`;
+      b.disabled = full;
+      b.classList.toggle('selected', team === mine.team);
+    }
     document.body.dataset.team = mine.team;
     $('readyBtn').classList.toggle('on', mine.ready);
     $('readyBtn').textContent = mine.ready ? '준비 완료 ✓' : '준비!';

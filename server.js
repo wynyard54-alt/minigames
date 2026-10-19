@@ -9,7 +9,8 @@ const { Match, TEAMS, WORLD } = require('./game');
 
 const PORT = Number(process.env.PORT) || 3000;
 const TICK_MS = 1000 / 30;
-const MAX_PLAYERS = 40;
+const TEAM_MAX = 8; // 팀당 최대 인원 (8이면 최대 8대8, 16명). 이 숫자만 바꾸면 된다
+const MAX_PLAYERS = TEAM_MAX * 2;
 const PLAYER_GRACE_MS = 60 * 1000; // 대기실에서 연결 끊긴 학생을 지우기까지
 const HOST_GRACE_MS = 10 * 60 * 1000; // 선생님 화면이 닫힌 방을 지우기까지
 
@@ -80,10 +81,8 @@ function smallerTeam(room) {
 
 // ---------- AI 봇 ----------
 const BOT_NAMES = ['곰돌', '토끼', '여우', '상어', '늑대', '독수리', '호랑', '판다', '펭귄', '고양', '다람쥐', '부엉', '거북', '사자', '하마', '코알라'];
-const BOTS_PER_TEAM = 4; // '빈자리 채우기'를 누르면 팀마다 최소 이만큼 채운다
-
 function addBot(room, team) {
-  if (room.players.size >= MAX_PLAYERS) return false;
+  if (teamCount(room, team) >= TEAM_MAX) return false;
   const used = new Set([...room.players.values()].map((p) => p.name));
   const base = BOT_NAMES.find((n) => !used.has('AI' + n)) || String(room.players.size);
   const bot = { id: 'bot-' + token().slice(0, 6), key: null, name: 'AI' + base, team, ready: true, bot: true, connected: true, socketId: null };
@@ -106,14 +105,24 @@ function teamCount(room, team) {
 // 학생이 들어오면 그 팀의 AI가 한 명 자리를 비켜 준다
 function makeRoomForHuman(room, team) {
   const bots = [...room.players.values()].filter((p) => p.bot);
-  const bot = bots.find((p) => p.team === team) || (room.players.size >= MAX_PLAYERS ? bots[0] : null);
+  const bot = bots.find((p) => p.team === team);
   if (bot) removeBot(room, bot);
+}
+
+// 팀당 인원을 size명으로 맞춘다: 모자라면 AI를 넣고, 넘치면 AI만 뺀다 (학생은 그대로)
+function fitBots(room, size) {
+  for (const team of TEAMS) {
+    while (teamCount(room, team) < size && addBot(room, team));
+    const extra = [...room.players.values()].filter((p) => p.bot && p.team === team);
+    while (teamCount(room, team) > size && extra.length) removeBot(room, extra.pop());
+  }
 }
 
 function lobbyView(room) {
   return {
     code: room.code,
     state: room.state,
+    teamMax: TEAM_MAX,
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -251,10 +260,7 @@ io.on('connection', (socket) => {
     const room = hostRoom();
     if (!room || !req) return;
     if (req.action === 'fill') {
-      const target = Math.max(BOTS_PER_TEAM, teamCount(room, 'red'), teamCount(room, 'blue'));
-      for (const team of TEAMS) {
-        while (teamCount(room, team) < target && addBot(room, team));
-      }
+      fitBots(room, Math.max(1, Math.min(TEAM_MAX, Math.floor(Number(req.size)) || 4)));
     } else if (req.action === 'add' && TEAMS.includes(req.team)) {
       addBot(room, req.team);
     } else if (req.action === 'clear') {
@@ -286,9 +292,11 @@ io.on('connection', (socket) => {
       if (p && p.key === data.key) player = p; // 새로고침/재접속
     }
     if (!player) {
-      const hasBot = [...room.players.values()].some((p) => p.bot);
-      if (room.players.size >= MAX_PLAYERS && !hasBot) return reply({ ok: false, error: '방이 가득 찼어요.' });
       const team = smallerTeam(room);
+      const teamHasBot = [...room.players.values()].some((p) => p.bot && p.team === team);
+      if (teamCount(room, team) >= TEAM_MAX && !teamHasBot) {
+        return reply({ ok: false, error: `방이 가득 찼어요. (팀당 최대 ${TEAM_MAX}명)` });
+      }
       makeRoomForHuman(room, team);
       player = {
         id: token().slice(0, 8),
@@ -320,7 +328,13 @@ io.on('connection', (socket) => {
 
   socket.on('player:team', (team) => {
     const { room, player } = findPlayerBySocket(socket);
-    if (!player || room.state === 'game' || !TEAMS.includes(team)) return;
+    if (!player || room.state === 'game' || !TEAMS.includes(team) || player.team === team) return;
+    if (teamCount(room, team) >= TEAM_MAX) {
+      // 꽉 찬 팀이라도 AI가 있으면 그 AI와 자리를 바꾼다
+      const bot = [...room.players.values()].find((p) => p.bot && p.team === team);
+      if (!bot) return;
+      bot.team = player.team;
+    }
     player.team = team;
     broadcastLobby(room);
   });

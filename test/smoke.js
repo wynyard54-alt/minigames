@@ -211,6 +211,19 @@ function engineTests() {
   await wait(100);
   assert.equal(lobby.players.filter((p) => p.bot).length, 0, 'clear removes bots');
 
+  // 팀당 최대 8명: 8대8까지 채우고, 인원을 줄이면 AI만 빠진다
+  host.emit('host:bots', { action: 'fill', size: 8 });
+  await wait(150);
+  assert.equal(lobby.players.length, 16);
+  assert.equal(lobby.teamMax, 8);
+  host.emit('host:bots', { action: 'add', team: 'red' });
+  await wait(100);
+  assert.equal(lobby.players.length, 16, 'no 9th player on a team');
+  host.emit('host:bots', { action: 'fill', size: 1 });
+  await wait(150);
+  assert.equal(lobby.players.filter((p) => p.bot).length, 0, 'shrinking removes only bots');
+  assert.equal(lobby.players.length, 5, 'students stay');
+
   console.log('smoke test OK');
   process.exit(0);
 })().catch((e) => {

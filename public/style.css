@@ -235,6 +235,38 @@ body {
 .plist li.bot .badge {
   color: #c58cff;
 }
+.bot-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.bot-size b {
+  min-width: 1.6em;
+  text-align: center;
+  font-size: 22px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.bot-size .step {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.bot-size .step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.bot-row {
+  align-items: center;
+}
 .red-text {
   color: var(--red) !important;
 }
@@ -532,6 +564,9 @@ body.player.playing {
 }
 .team-btn.blue {
   background: var(--blue);
+}
+.team-btn:disabled {
+  opacity: 0.25;
 }
 .team-btn.selected {
   opacity: 1;

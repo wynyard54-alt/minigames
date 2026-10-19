@@ -40,7 +40,14 @@
         <div class="lobby-actions">
           <div id="readyInfo" class="ready-info">학생을 기다리는 중…</div>
           <div class="row bot-row">
-            <button id="fillBotsBtn" class="btn ghost">🤖 빈자리 AI로 채우기</button>
+            <div class="bot-size" role="group" aria-label="AI로 맞출 팀당 인원">
+              <span>팀당</span>
+              <button type="button" id="sizeDown" class="step" aria-label="한 명 줄이기">−</button>
+              <b id="sizeVal">4</b>
+              <button type="button" id="sizeUp" class="step" aria-label="한 명 늘리기">+</button>
+              <span>명</span>
+            </div>
+            <button id="fillBotsBtn" class="btn ghost">🤖 AI로 인원 맞추기</button>
             <button id="addRedBot" class="btn ghost tiny red-text">+ 빨강 AI</button>
             <button id="addBlueBot" class="btn ghost tiny blue-text">+ 파랑 AI</button>
             <button id="clearBotsBtn" class="btn ghost tiny">AI 모두 빼기</button>
