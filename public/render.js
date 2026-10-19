@@ -130,10 +130,13 @@ window.GameRender = (() => {
     }
   }
 
-  // 한 화면(캔버스)의 보간 위치와 효과를 들고 있는 장면
-  function createScene() {
-    const disp = new Map();
-    const bulletDisp = new Map();
+  // 한 화면(캔버스)의 장면: 서버 상태를 모아 두었다가 delay만큼 늦게, 사이를 이어서 부드럽게 보여 준다.
+  // 서버 소식이 들쭉날쭉 도착해도 끊기지 않게 하는 방법(보간)이다.
+  function createScene(delay = 100) {
+    const buffer = []; // 서버 시각(st) 순서의 상태들
+    let offset = null; // 서버 시각 - 내 시각 (가장 빨리 도착한 소식 기준)
+    let current = null; // 지금 그릴 상태
+    let pendingFx = [];
     let particles = [];
     let floaters = [];
     let waves = [];
@@ -146,7 +149,12 @@ window.GameRender = (() => {
       }
     }
 
+    // 효과도 화면과 같은 만큼 늦게 보여 줘야 총알이 닿는 순간과 맞는다
     function fx(ev) {
+      pendingFx.push({ ev, t: performance.now() + delay });
+    }
+
+    function playFx(ev) {
       if (ev.type === 'hit') burst(ev.x, ev.y, TEAM_COLOR[ev.team], 6, 120);
       if (ev.type === 'super') {
         waves.push({ x: ev.x, y: ev.y, r: ev.r, color: TEAM_COLOR[ev.team], life: 0.5 });
@@ -159,76 +167,103 @@ window.GameRender = (() => {
     }
 
     function reset() {
-      disp.clear();
-      bulletDisp.clear();
+      buffer.length = 0;
+      offset = null;
+      current = null;
+      pendingFx = [];
       particles = [];
       floaters = [];
       waves = [];
     }
 
-    // 서버 위치를 향해 부드럽게 따라가게 한다. 화면이 따라갈 내 위치도 여기서 얻는다
-    function smooth(snap, dt) {
-      const k = Math.min(1, dt * 18);
-      const seen = new Set();
-      for (const p of snap.players) {
-        seen.add(p.id);
-        let d = disp.get(p.id);
-        if (!d || Math.hypot(d.x - p.x, d.y - p.y) > 200) {
-          d = { x: p.x, y: p.y };
-          disp.set(p.id, d);
-        }
-        d.x += (p.x - d.x) * k;
-        d.y += (p.y - d.y) * k;
-      }
-      for (const id of disp.keys()) if (!seen.has(id)) disp.delete(id);
+    function push(snap) {
+      const now = performance.now();
+      const sample = snap.st - now;
+      // 늦게 온 소식은 기준을 끌어내리지 않고, 기준은 아주 천천히만 낮춘다
+      offset = offset === null ? sample : Math.max(sample, offset - 2);
+      buffer.push(snap);
+      while (buffer.length > 2 && buffer[1].st < snap.st - 1000) buffer.shift();
     }
 
-    // opts.meId: 내 캐릭터 강조, opts.myTeam: 부시에 숨은 우리 팀은 반투명으로 보여줌
-    function draw(ctx, world, snap, dt, now, opts = {}) {
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    // 지금 그릴 상태를 만든다: 두 서버 상태 사이를 시간 비율로 섞는다
+    function update(now) {
+      if (!buffer.length) return null;
+      const rt = now + offset - delay;
+      let i = buffer.length - 1;
+      while (i > 0 && buffer[i].st > rt) i--;
+      const s0 = buffer[i];
+      const s1 = buffer[i + 1];
+      if (!s1 || s0.st > rt) {
+        current = s0;
+        return current;
+      }
+      const t = Math.max(0, Math.min(1, (rt - s0.st) / (s1.st - s0.st)));
+      const next = new Map(s1.players.map((p) => [p.id, p]));
+      const players = s0.players.map((p) => {
+        const q = next.get(p.id);
+        if (!q || Math.hypot(q.x - p.x, q.y - p.y) > 200) return p; // 부활처럼 순간이동한 경우는 섞지 않음
+        return { ...p, x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) };
+      });
+      const nextB = new Map(s1.bullets.map((b) => [b[0], b]));
+      const bullets = s0.bullets.map((b) => {
+        const q = nextB.get(b[0]);
+        return q ? [b[0], lerp(b[1], q[1], t), lerp(b[2], q[2], t), b[3]] : b;
+      });
+      current = { ...s0, players, bullets };
+      return current;
+    }
+
+    // opts.meId: 내 캐릭터 강조, opts.myTeam: 부시에 숨은 우리 팀은 반투명으로 보여줌,
+    // opts.me: 폰이 미리 움직여 둔 내 위치·방향 {x, y, fx, fy}
+    function draw(ctx, world, dt, now, opts = {}) {
       drawMap(ctx, world);
+      if (!current) return;
+      const snap = current;
+      const at = (p) => (opts.me && p.id === opts.meId ? opts.me : p);
 
       const me = opts.meId && snap.players.find((p) => p.id === opts.meId);
       if (me && me.al) {
-        const d = disp.get(me.id);
+        const d = at(me);
         ctx.strokeStyle = 'rgba(255,216,77,0.45)';
         ctx.lineWidth = 6;
         ctx.setLineDash([10, 10]);
         ctx.beginPath();
-        ctx.moveTo(d.x + me.fx * 30, d.y + me.fy * 30);
-        ctx.lineTo(d.x + me.fx * 140, d.y + me.fy * 140);
+        ctx.moveTo(d.x + d.fx * 30, d.y + d.fy * 30);
+        ctx.lineTo(d.x + d.fx * 140, d.y + d.fy * 140);
         ctx.stroke();
         ctx.setLineDash([]);
       }
 
-      const bseen = new Set();
-      for (const [id, x, y, team] of snap.bullets) {
-        bseen.add(id);
-        let d = bulletDisp.get(id);
-        if (!d) {
-          d = { x, y };
-          bulletDisp.set(id, d);
-        }
-        d.x += (x - d.x) * Math.min(1, dt * 30);
-        d.y += (y - d.y) * Math.min(1, dt * 30);
-        ctx.fillStyle = team === 0 ? '#ffb3ba' : '#b3d1ff';
-        ctx.shadowColor = team === 0 ? TEAM_COLOR.red : TEAM_COLOR.blue;
-        ctx.shadowBlur = 14;
+      // 총알 (그림자 흐림 효과는 폰에서 무거워서 반투명 원 두 개로 빛을 흉내 낸다)
+      for (const [, x, y, team] of snap.bullets) {
+        ctx.fillStyle = team === 0 ? 'rgba(255,77,94,0.35)' : 'rgba(61,139,255,0.35)';
         ctx.beginPath();
-        ctx.arc(d.x, d.y, 8, 0, Math.PI * 2);
+        ctx.arc(x, y, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = team === 0 ? '#ffb3ba' : '#b3d1ff';
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
-      for (const id of bulletDisp.keys()) if (!bseen.has(id)) bulletDisp.delete(id);
 
       for (const p of snap.players) {
         if (!p.al) continue;
         if (p.hid && p.t !== opts.myTeam) continue; // 숨은 적(큰 화면에선 숨은 모두)은 안 그림
-        const d = disp.get(p.id);
+        const d = at(p);
         ctx.globalAlpha = !p.c ? 0.35 : p.hid ? 0.45 : p.ib ? 0.75 : 1;
-        drawPlayer(ctx, world, p, d, now, p.id === opts.meId);
+        drawPlayer(ctx, world, d === p ? p : { ...p, fx: d.fx, fy: d.fy }, d, now, p.id === opts.meId);
         ctx.globalAlpha = 1;
       }
 
+      const ready = pendingFx.filter((f) => f.t <= now);
+      if (ready.length) {
+        pendingFx = pendingFx.filter((f) => f.t > now);
+        for (const f of ready) playFx(f.ev);
+      }
       waves = waves.filter((w) => (w.life -= dt) > 0);
       for (const w of waves) {
         const t = 1 - w.life / 0.5;
@@ -269,7 +304,7 @@ window.GameRender = (() => {
       ctx.globalAlpha = 1;
     }
 
-    return { fx, reset, smooth, draw, pos: (id) => disp.get(id) };
+    return { fx, reset, push, update, draw };
   }
 
   return { TEAM_COLOR, createScene };

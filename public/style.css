@@ -751,6 +751,21 @@ body.started .zone > span {
 .super-btn.ready small {
   color: #fff;
 }
+.pad-net {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pad-net.good {
+  color: var(--green);
+}
+.pad-net.ok {
+  color: var(--gold);
+}
+.pad-net.bad {
+  color: var(--red);
+}
 .pfeed {
   position: fixed;
   z-index: 2;

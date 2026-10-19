@@ -44,6 +44,9 @@ app.get('/api/lan', (req, res) => {
 
 app.get('/healthz', (req, res) => res.send('ok'));
 
+// 게임 규칙 파일을 폰에도 보내서, 내 캐릭터를 서버 응답 전에 미리 움직일 때 쓴다
+app.get('/game.js', (req, res) => res.sendFile(path.join(__dirname, 'game.js')));
+
 /** @type {Map<string, any>} */
 const rooms = new Map();
 
@@ -186,6 +189,9 @@ function findPlayerBySocket(socket) {
 }
 
 io.on('connection', (socket) => {
+  // 통신 지연 측정용: 폰이 보낸 시각을 그대로 돌려준다
+  socket.on('ping2', (t, cb) => typeof cb === 'function' && cb(Date.now()));
+
   // ---------- 선생님(호스트) 화면 ----------
   socket.on('host:create', (_, cb) => {
     const code = newCode();
@@ -399,11 +405,11 @@ setInterval(() => {
     room.match.step(dt);
     if (!room.match) continue; // 이번 틱에 경기가 끝남
     room.tickCount += 1;
-    if (room.hostSocket) io.to(room.hostSocket).volatile.emit('state', room.match.snapshot());
+    if (room.hostSocket) io.to(room.hostSocket).volatile.emit('state', { ...room.match.snapshot(), st: now });
     if (room.tickCount % 2 === 0) {
       // 학생 폰: 초당 15번, 각자 자기 주변 화면
       for (const p of room.players.values()) {
-        if (p.socketId) io.to(p.socketId).volatile.emit('view', room.match.view(p.id));
+        if (p.socketId) io.to(p.socketId).volatile.emit('view', { ...room.match.view(p.id), st: now });
       }
     }
   }

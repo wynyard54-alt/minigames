@@ -1,5 +1,5 @@
 (() => {
-  const socket = io();
+  const socket = io({ transports: ['websocket', 'polling'] }); // 웹소켓을 먼저 시도 (느린 방식은 막힐 때만)
   const $ = (id) => document.getElementById(id);
   const TEAM_NAME = { red: '빨강팀', blue: '파랑팀' };
   const TEAM_COLOR = GameRender.TEAM_COLOR;
@@ -138,6 +138,7 @@
     world = data.world;
     view = null;
     scene.reset();
+    pred.active = false;
     $('pFeed').innerHTML = '';
     resetSticks();
     show('pad');
@@ -160,6 +161,8 @@
   socket.on('view', (v) => {
     if (!v || !joined) return;
     view = v;
+    scene.push(v);
+    reconcile(v);
     renderFeed(v.feed);
     const s = v.me;
     if ($('pad').classList.contains('hidden')) show('pad');
@@ -190,7 +193,86 @@
   // ---------- 내 폰의 게임 화면 ----------
   const canvas = $('view');
   const ctx = canvas.getContext('2d');
-  const scene = GameRender.createScene();
+  const scene = GameRender.createScene(110); // 초당 15번 받으므로 0.11초 늦게, 사이를 이어서 보여 준다
+
+  // ---------- 통신 지연 측정 ----------
+  let rtt = 150; // 왕복 시간(ms). 측정 전에는 대략값
+  function measurePing() {
+    if (!socket.connected) return;
+    const t0 = performance.now();
+    socket.emit('ping2', 0, () => {
+      const sample = performance.now() - t0;
+      rtt = rtt * 0.7 + sample * 0.3;
+      const ms = Math.round(rtt);
+      const slow = socket.io.engine && socket.io.engine.transport.name !== 'websocket';
+      const el = $('net');
+      el.textContent = `📶 ${ms}ms${slow ? ' (느린 연결)' : ''}`;
+      el.className = 'pad-net ' + (ms < 120 && !slow ? 'good' : ms < 250 ? 'ok' : 'bad');
+    });
+  }
+  setInterval(measurePing, 2000);
+  socket.on('connect', measurePing);
+
+  // ---------- 내 캐릭터 미리 움직이기(예측) ----------
+  // 서버 답을 기다리지 않고 조이스틱대로 바로 움직이고, 서버 위치와 어긋나면 조금씩 맞춘다
+  const pred = { x: 0, y: 0, fx: 1, fy: 0, active: false };
+  const hist = []; // 최근 내 예측 위치 기록 {t, x, y}
+  const corr = { x: 0, y: 0 }; // 아직 덜 맞춘 차이
+
+  function predictStep(dt, now) {
+    const s = view && view.me;
+    const srv = view && view.players.find((p) => p.id === me.id);
+    if (!s || !srv || s.phase !== 'playing' || !s.alive) {
+      pred.active = false;
+      hist.length = 0;
+      return;
+    }
+    if (!pred.active) {
+      Object.assign(pred, { x: srv.x, y: srv.y, fx: srv.fx, fy: srv.fy, active: true });
+      corr.x = corr.y = 0;
+    }
+    GameEngine.moveFighter(pred, input.mx, input.my, dt);
+    if (input.mx || input.my) {
+      const l = Math.hypot(input.mx, input.my);
+      pred.fx = input.mx / l;
+      pred.fy = input.my / l;
+    }
+    const k = Math.min(1, dt * 6);
+    const cx = corr.x * k;
+    const cy = corr.y * k;
+    corr.x -= cx;
+    corr.y -= cy;
+    pred.x += cx;
+    pred.y += cy;
+    for (const h of hist) {
+      h.x += cx;
+      h.y += cy;
+    }
+    hist.push({ t: now, x: pred.x, y: pred.y });
+    while (hist.length && hist[0].t < now - 1500) hist.shift();
+  }
+
+  // 서버가 알려 준 내 위치는 대략 왕복 시간만큼 예전의 나다. 그때의 예측 위치와 비교해서 차이를 맞춘다
+  function reconcile(v) {
+    const srv = v.players.find((p) => me && p.id === me.id);
+    if (!srv || !pred.active || !hist.length) return;
+    const t = performance.now() - rtt;
+    let h = hist[0];
+    for (const e of hist) {
+      if (e.t > t) break;
+      h = e;
+    }
+    const ex = srv.x - h.x;
+    const ey = srv.y - h.y;
+    if (Math.hypot(ex, ey) > 150) {
+      Object.assign(pred, { x: srv.x, y: srv.y });
+      corr.x = corr.y = 0;
+      hist.length = 0;
+      return;
+    }
+    corr.x = ex;
+    corr.y = ey;
+  }
   const cam = { x: 0, y: 0, s: 1, ready: false };
   socket.on('fx', (ev) => scene.fx(ev));
 
@@ -249,14 +331,15 @@
     requestAnimationFrame(frame);
     if (!view || !world || !me || $('pad').classList.contains('hidden')) return;
     const dpr = resizeView();
-    scene.smooth(view, dt);
-    const mine = scene.pos(me.id);
+    predictStep(dt, now);
+    const cur = scene.update(now);
+    const mine = pred.active ? pred : cur && cur.players.find((p) => p.id === me.id);
     if (mine) updateCamera(mine);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0d1020';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(cam.s * dpr, 0, 0, cam.s * dpr, -cam.x * cam.s * dpr, -cam.y * cam.s * dpr);
-    scene.draw(ctx, world, view, dt, now, { meId: me.id, myTeam: view.me.team });
+    scene.draw(ctx, world, dt, now, { meId: me.id, myTeam: view.me.team, me: pred.active ? pred : null });
   }
   requestAnimationFrame(frame);
 

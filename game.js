@@ -458,7 +458,7 @@ class Match {
       if (f.input.firing && f.ammo >= 1 && f.cooldown <= 0) this.fire(f.id, { facing: true });
       f.x = clamp(f.x, PLAYER_R, W - PLAYER_R);
       f.y = clamp(f.y, PLAYER_R, H - PLAYER_R);
-      for (const w of WALLS) circleRectPush(f, PLAYER_R, w);
+      for (const w of WALLS) circleRectPush(f, PLAYER_R, w); // GameEngine.moveFighter와 같은 규칙
     }
 
     const keep = [];
@@ -651,9 +651,18 @@ class Match {
   }
 }
 
-module.exports = {
+const GameEngine = {
   Match,
   TEAMS,
   POINTS,
-  WORLD: { W, H, PLAYER_R, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
+  WORLD: { W, H, PLAYER_R, SPEED, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
+  // 폰에서 내 캐릭터를 미리 움직여 볼 때(예측) 서버와 똑같이 벽에 막히도록 같이 쓴다
+  moveFighter(f, mx, my, dt) {
+    f.x = clamp(f.x + mx * SPEED * dt, PLAYER_R, W - PLAYER_R);
+    f.y = clamp(f.y + my * SPEED * dt, PLAYER_R, H - PLAYER_R);
+    for (const w of WALLS) circleRectPush(f, PLAYER_R, w);
+  },
 };
+
+if (typeof module !== 'undefined') module.exports = GameEngine;
+else window.GameEngine = GameEngine; // 브라우저에서 <script src="game.js">로 불러올 때

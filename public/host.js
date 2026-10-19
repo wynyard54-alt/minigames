@@ -1,5 +1,5 @@
 (() => {
-  const socket = io();
+  const socket = io({ transports: ['websocket', 'polling'] }); // 웹소켓을 먼저 시도 (느린 방식은 막힐 때만)
   const $ = (id) => document.getElementById(id);
   const TEAM_COLOR = GameRender.TEAM_COLOR;
   const TEAM_NAME = { red: '빨강팀', blue: '파랑팀' };
@@ -175,7 +175,7 @@
   // ---------- 게임 화면 ----------
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
-  const scene = GameRender.createScene();
+  const scene = GameRender.createScene(80); // 큰 화면은 초당 30번 받으므로 0.08초만 늦게 보여 준다
   let snap = null;
 
   socket.on('game:start', (data) => {
@@ -190,6 +190,7 @@
   socket.on('state', (s) => {
     if (lobby && lobby.state !== 'game') return; // 경기 종료 직후 늦게 도착한 패킷 무시
     snap = s;
+    scene.push(s);
     if ($('game').classList.contains('hidden')) {
       show('game'); // 경기 중에 새로고침한 경우
       resize();
@@ -264,8 +265,8 @@
     ctx.fillStyle = '#0d1020';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, ox, oy);
-    scene.smooth(snap, dt);
-    scene.draw(ctx, world, snap, dt, now); // 큰 화면은 모두가 보므로 부시에 숨은 사람은 안 그림
+    scene.update(now);
+    scene.draw(ctx, world, dt, now); // 큰 화면은 모두가 보므로 부시에 숨은 사람은 안 그림
 
     // 쓰러진 플레이어: 스폰 지점에 부활 카운트
     ctx.font = 'bold 18px system-ui, sans-serif';
