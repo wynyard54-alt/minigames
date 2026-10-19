@@ -130,6 +130,8 @@ function engineTests() {
   assert.match(await qr.text(), /<svg/);
 
   const host = connect();
+  let lobby;
+  host.on('lobby', (l) => (lobby = l)); // 처음부터 듣고 있어야 마지막 소식을 놓치지 않는다
   const { code, hostKey } = await ack(host, 'host:create');
   assert.match(code, /^\d{4}$/);
   assert.ok(hostKey);
@@ -146,8 +148,6 @@ function engineTests() {
     players.push({ s, ...res });
   }
 
-  let lobby;
-  host.on('lobby', (l) => (lobby = l));
   await wait(100);
   assert.equal(lobby.players.length, 4);
   const teams = lobby.players.map((p) => p.team).sort();

@@ -238,9 +238,16 @@
       pred.fx = input.mx / l;
       pred.fy = input.my / l;
     }
-    const k = Math.min(1, dt * 6);
-    const cx = corr.x * k;
-    const cy = corr.y * k;
+    // 차이는 천천히(초당 최대 120px) 맞춰서 내 캐릭터가 튀어 보이지 않게 한다
+    const k = Math.min(1, dt * 4);
+    let cx = corr.x * k;
+    let cy = corr.y * k;
+    const cl = Math.hypot(cx, cy);
+    const cap = 120 * dt;
+    if (cl > cap) {
+      cx *= cap / cl;
+      cy *= cap / cl;
+    }
     corr.x -= cx;
     corr.y -= cy;
     pred.x += cx;
@@ -265,7 +272,7 @@
     }
     const ex = srv.x - h.x;
     const ey = srv.y - h.y;
-    if (Math.hypot(ex, ey) > 150) {
+    if (Math.hypot(ex, ey) > 300) { // 부활처럼 크게 달라졌을 때만 바로 옮긴다
       Object.assign(pred, { x: srv.x, y: srv.y });
       corr.x = corr.y = 0;
       hist.length = 0;

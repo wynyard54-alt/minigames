@@ -160,9 +160,17 @@ window.GameRender = (() => {
 
   // 한 화면(캔버스)의 장면: 서버 상태를 모아 두었다가 delay만큼 늦게, 사이를 이어서 부드럽게 보여 준다.
   // 서버 소식이 들쭉날쭉 도착해도 끊기지 않게 하는 방법(보간)이다.
-  function createScene(delay = 100) {
+  // minDelay: 연결이 아주 좋을 때 기다리는 시간(ms). 소식이 들쭉날쭉하면 그만큼 자동으로 늘린다
+  function createScene(minDelay = 100) {
+    const MAX_DELAY = 450;
+    const EXTRAPOLATE_MS = 250; // 소식이 끊겨도 이만큼은 가던 방향으로 계속 움직인다
     const buffer = []; // 서버 시각(st) 순서의 상태들
     let offset = null; // 서버 시각 - 내 시각 (가장 빨리 도착한 소식 기준)
+    let delay = minDelay; // 지금 기다리는 시간
+    let targetDelay = minDelay;
+    const lateness = []; // 최근 소식들이 가장 빠른 소식보다 얼마나 늦었는지(ms)
+    const shown = new Map(); // 화면에 그린 위치 (갑자기 튀지 않도록 한 번 더 부드럽게)
+    let lastUpdate = 0;
     let current = null; // 지금 그릴 상태
     let pendingFx = [];
     let particles = [];
@@ -196,6 +204,9 @@ window.GameRender = (() => {
 
     function reset() {
       buffer.length = 0;
+      lateness.length = 0;
+      shown.clear();
+      delay = targetDelay = minDelay;
       offset = null;
       current = null;
       pendingFx = [];
@@ -208,9 +219,37 @@ window.GameRender = (() => {
       const now = performance.now();
       const sample = snap.st - now;
       // 늦게 온 소식은 기준을 끌어내리지 않고, 기준은 아주 천천히만 낮춘다
-      offset = offset === null ? sample : Math.max(sample, offset - 2);
+      offset = offset === null ? sample : Math.max(sample, offset - 1);
+      lateness.push(offset - sample);
+      if (lateness.length > 60) lateness.shift();
+      // 소식 간격 + 늦게 오는 정도(상위 10%)만큼 기다리면 대부분 끊기지 않는다
+      const sorted = [...lateness].sort((a, b) => a - b);
+      const p90 = sorted[Math.floor(sorted.length * 0.9)];
+      const prev = buffer[buffer.length - 1];
+      const gap = prev ? Math.min(200, snap.st - prev.st) : 66;
+      targetDelay = Math.max(minDelay, Math.min(MAX_DELAY, gap * 1.3 + p90));
       buffer.push(snap);
-      while (buffer.length > 2 && buffer[1].st < snap.st - 1000) buffer.shift();
+      while (buffer.length > 2 && buffer[1].st < snap.st - 1500) buffer.shift();
+    }
+
+    // 다른 캐릭터를 부드럽게 따라가게 한다. 부활처럼 멀리 바뀐 경우만 바로 옮긴다
+    function follow(players, dt) {
+      const k = Math.min(1, dt * 15);
+      const seen = new Set();
+      const out = players.map((p) => {
+        seen.add(p.id);
+        let d = shown.get(p.id);
+        if (!d || Math.hypot(d.x - p.x, d.y - p.y) > 250) {
+          d = { x: p.x, y: p.y };
+          shown.set(p.id, d);
+        } else {
+          d.x += (p.x - d.x) * k;
+          d.y += (p.y - d.y) * k;
+        }
+        return { ...p, x: d.x, y: d.y };
+      });
+      for (const id of shown.keys()) if (!seen.has(id)) shown.delete(id);
+      return out;
     }
 
     function lerp(a, b, t) {
@@ -220,28 +259,45 @@ window.GameRender = (() => {
     // 지금 그릴 상태를 만든다: 두 서버 상태 사이를 시간 비율로 섞는다
     function update(now) {
       if (!buffer.length) return null;
+      const dt = lastUpdate ? Math.min(0.1, (now - lastUpdate) / 1000) : 0;
+      lastUpdate = now;
+      delay += (targetDelay - delay) * Math.min(1, dt * 2); // 기다리는 시간은 천천히 바꾼다
       const rt = now + offset - delay;
       let i = buffer.length - 1;
       while (i > 0 && buffer[i].st > rt) i--;
-      const s0 = buffer[i];
-      const s1 = buffer[i + 1];
-      if (!s1 || s0.st > rt) {
-        current = s0;
+      let s0 = buffer[i];
+      let s1 = buffer[i + 1];
+      if (s0.st > rt) s1 = null;
+      // 다음 소식이 아직 안 왔으면: 마지막 두 소식의 움직임으로 조금 더 앞을 내다본다
+      let extrapolate = false;
+      if (!s1 && i > 0) {
+        s1 = s0;
+        s0 = buffer[i - 1];
+        extrapolate = true;
+      }
+      if (!s1) {
+        current = { ...s0, players: follow(s0.players, dt) };
         return current;
       }
-      const t = Math.max(0, Math.min(1, (rt - s0.st) / (s1.st - s0.st)));
-      const next = new Map(s1.players.map((p) => [p.id, p]));
-      const players = s0.players.map((p) => {
-        const q = next.get(p.id);
+      const span = s1.st - s0.st || 1;
+      const ahead = extrapolate ? Math.min(rt, s1.st + EXTRAPOLATE_MS) : rt;
+      const t = Math.max(0, extrapolate ? (ahead - s0.st) / span : Math.min(1, (rt - s0.st) / span));
+      // 앞을 내다볼 때는 최신 소식(s1)의 정보(체력 등)를 쓰고 위치만 이어서 계산한다
+      const base = extrapolate ? s1 : s0;
+      const other = extrapolate ? s0 : s1;
+      const mix = (a, b) => (extrapolate ? lerp(b, a, t) : lerp(a, b, t)); // a: base, b: other
+      const otherP = new Map(other.players.map((p) => [p.id, p]));
+      const players = base.players.map((p) => {
+        const q = otherP.get(p.id);
         if (!q || Math.hypot(q.x - p.x, q.y - p.y) > 200) return p; // 부활처럼 순간이동한 경우는 섞지 않음
-        return { ...p, x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) };
+        return { ...p, x: mix(p.x, q.x), y: mix(p.y, q.y) };
       });
-      const nextB = new Map(s1.bullets.map((b) => [b[0], b]));
-      const bullets = s0.bullets.map((b) => {
-        const q = nextB.get(b[0]);
-        return q ? [b[0], lerp(b[1], q[1], t), lerp(b[2], q[2], t), b[3]] : b;
+      const otherB = new Map(other.bullets.map((b) => [b[0], b]));
+      const bullets = base.bullets.map((b) => {
+        const q = otherB.get(b[0]);
+        return q ? [b[0], mix(b[1], q[1]), mix(b[2], q[2]), b[3]] : b;
       });
-      current = { ...s0, players, bullets };
+      current = { ...base, players: follow(players, dt), bullets };
       return current;
     }
 

@@ -16,7 +16,8 @@ const HOST_GRACE_MS = 10 * 60 * 1000; // 선생님 화면이 닫힌 방을 지�
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { pingInterval: 10000, pingTimeout: 8000 });
+// perMessageDeflate: 1KB 넘는 메시지는 압축해서 보낸다 (느린 연결에서 데이터 양을 크게 줄임)
+const io = new Server(server, { pingInterval: 10000, pingTimeout: 8000, perMessageDeflate: { threshold: 1024 } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
