@@ -155,6 +155,8 @@ class Match {
       id: p.id,
       name: p.name,
       team: p.team,
+      // AI 봇이면 생각 상태를 들고 있다 (사람은 null)
+      brain: p.bot ? { think: 0, stuck: 0, side: Math.random() < 0.5 ? 1 : -1, lastX: 0, lastY: 0, mx: 0, my: 0, lane: 150 + Math.random() * 600 } : null,
       x: 0,
       y: 0,
       hp: MAX_HP,
@@ -295,6 +297,68 @@ class Match {
     }
   }
 
+  // AI 봇: 보이는 적에게 다가가 쏘고, 체력이 낮으면 후퇴. 사람과 같은 규칙으로 움직이고 쏜다
+  botThink(f, dt) {
+    const b = f.brain;
+    b.think -= dt;
+    let target = null;
+    let best = Infinity;
+    for (const o of this.fighters.values()) {
+      if (o.team === f.team || !o.alive || !o.connected || o.hidden) continue;
+      const d = Math.hypot(o.x - f.x, o.y - f.y);
+      if (d < best) {
+        best = d;
+        target = o;
+      }
+    }
+    const sees = target && best < BULLET_RANGE - 40 && hasLineOfSight(f.x, f.y, target.x, target.y);
+    if (b.think <= 0) {
+      b.think = 0.25 + Math.random() * 0.2;
+      const moved = Math.hypot(f.x - b.lastX, f.y - b.lastY);
+      b.lastX = f.x;
+      b.lastY = f.y;
+      if (moved < 8 && (b.mx || b.my)) {
+        b.stuck = 0.7; // 벽에 막히면 잠깐 옆으로 돌아간다
+        b.side = -b.side;
+      }
+      let tx = W / 2;
+      let ty = b.lane;
+      if (f.hp < 35) {
+        tx = f.team === 'red' ? 90 : W - 90;
+        ty = f.y;
+      } else if (target) {
+        tx = target.x;
+        ty = target.y;
+      }
+      let dx = tx - f.x;
+      let dy = ty - f.y;
+      const l = Math.hypot(dx, dy) || 1;
+      dx /= l;
+      dy /= l;
+      if (sees && f.hp >= 35) {
+        // 적 쪽을 바라보며 비스듬히 다가간다. 가까우면 거의 멈춰서 방향만 맞춘다
+        const a = Math.atan2(dy, dx) + b.side * 0.22;
+        const speed = best < 220 ? 0.15 : 1;
+        b.mx = Math.cos(a) * speed;
+        b.my = Math.sin(a) * speed;
+        if (Math.random() < 0.2) b.side = -b.side;
+      } else if (b.stuck > 0) {
+        b.mx = -dy * b.side;
+        b.my = dx * b.side;
+      } else {
+        b.mx = dx;
+        b.my = dy;
+      }
+    }
+    b.stuck -= dt;
+    if (f.charge >= SUPER_HITS && target && best < SUPER_RADIUS - 10 && Math.random() < dt * 3) this.useSuper(f.id);
+    this.setInput(f.id, { mx: b.mx, my: b.my });
+    if (sees && f.ammo >= 1 && Math.random() < dt * 2.4) {
+      const cos = ((target.x - f.x) * f.faceX + (target.y - f.y) * f.faceY) / best;
+      if (Math.acos(clamp(cos, -1, 1)) <= ASSIST_ANGLE) this.fire(f.id, { facing: true });
+    }
+  }
+
   assistTarget(f) {
     let best = null;
     let bestScore = Infinity;
@@ -347,6 +411,8 @@ class Match {
       this.onEvent({ type: 'over', result: this.result() });
       return;
     }
+
+    for (const f of this.fighters.values()) if (f.brain && f.alive) this.botThink(f, dt);
 
     for (const f of this.fighters.values()) {
       if (f.hitFlash > 0) f.hitFlash -= dt;
@@ -486,6 +552,7 @@ class Match {
       deaths: f.deaths,
       assists: f.assists,
       points: points(f),
+      bot: !!f.brain,
     }));
     list.sort(rankOrder);
     let winner = 'draw';
@@ -519,6 +586,7 @@ class Match {
       as: f.assists,
       pt: points(f),
       c: f.connected,
+      bot: !!f.brain,
     };
   }
 

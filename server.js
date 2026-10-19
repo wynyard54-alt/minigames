@@ -66,10 +66,48 @@ function cleanName(name) {
   return s || '플레이어';
 }
 
+// 인원이 적은 팀. 같으면 학생(사람)이 적은 팀
 function smallerTeam(room) {
   const count = { red: 0, blue: 0 };
-  for (const p of room.players.values()) count[p.team] += 1;
-  return count.red <= count.blue ? 'red' : 'blue';
+  const humans = { red: 0, blue: 0 };
+  for (const p of room.players.values()) {
+    count[p.team] += 1;
+    if (!p.bot) humans[p.team] += 1;
+  }
+  if (count.red !== count.blue) return count.red < count.blue ? 'red' : 'blue';
+  return humans.red <= humans.blue ? 'red' : 'blue';
+}
+
+// ---------- AI 봇 ----------
+const BOT_NAMES = ['곰돌', '토끼', '여우', '상어', '늑대', '독수리', '호랑', '판다', '펭귄', '고양', '다람쥐', '부엉', '거북', '사자', '하마', '코알라'];
+const BOTS_PER_TEAM = 4; // '빈자리 채우기'를 누르면 팀마다 최소 이만큼 채운다
+
+function addBot(room, team) {
+  if (room.players.size >= MAX_PLAYERS) return false;
+  const used = new Set([...room.players.values()].map((p) => p.name));
+  const base = BOT_NAMES.find((n) => !used.has('AI' + n)) || String(room.players.size);
+  const bot = { id: 'bot-' + token().slice(0, 6), key: null, name: 'AI' + base, team, ready: true, bot: true, connected: true, socketId: null };
+  room.players.set(bot.id, bot);
+  if (room.match) room.match.addPlayer(bot);
+  return true;
+}
+
+function removeBot(room, bot) {
+  room.players.delete(bot.id);
+  if (room.match) room.match.removePlayer(bot.id);
+}
+
+function teamCount(room, team) {
+  let n = 0;
+  for (const p of room.players.values()) if (p.team === team) n += 1;
+  return n;
+}
+
+// 학생이 들어오면 그 팀의 AI가 한 명 자리를 비켜 준다
+function makeRoomForHuman(room, team) {
+  const bots = [...room.players.values()].filter((p) => p.bot);
+  const bot = bots.find((p) => p.team === team) || (room.players.size >= MAX_PLAYERS ? bots[0] : null);
+  if (bot) removeBot(room, bot);
 }
 
 function lobbyView(room) {
@@ -82,6 +120,7 @@ function lobbyView(room) {
       team: p.team,
       ready: p.ready,
       connected: p.connected,
+      bot: !!p.bot,
     })),
     result: room.state === 'result' ? room.lastResult : null,
   };
@@ -92,7 +131,7 @@ function broadcastLobby(room) {
 }
 
 function createMatch(room) {
-  const list = [...room.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team }));
+  const list = [...room.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, bot: p.bot }));
   room.match = new Match(list, (ev) => onMatchEvent(room, ev));
   for (const p of room.players.values()) room.match.setConnected(p.id, p.connected);
   room.state = 'game';
@@ -122,7 +161,7 @@ function onMatchEvent(room, ev) {
     room.lastResult = ev.result;
     room.state = 'result';
     room.match = null;
-    for (const p of room.players.values()) p.ready = false;
+    for (const p of room.players.values()) p.ready = !!p.bot; // AI는 언제나 준비 완료
     // 경기 중에 나간 학생은 결과가 나온 뒤 정리
     for (const [id, p] of room.players) if (!p.connected) room.players.delete(id);
     io.to(room.chan).emit('game:over', ev.result);
@@ -203,8 +242,24 @@ io.on('connection', (socket) => {
     const list = [...room.players.values()].sort(() => Math.random() - 0.5);
     list.forEach((p, i) => {
       p.team = TEAMS[i % 2];
-      p.ready = false;
+      p.ready = !!p.bot;
     });
+    broadcastLobby(room);
+  });
+
+  socket.on('host:bots', (req) => {
+    const room = hostRoom();
+    if (!room || !req) return;
+    if (req.action === 'fill') {
+      const target = Math.max(BOTS_PER_TEAM, teamCount(room, 'red'), teamCount(room, 'blue'));
+      for (const team of TEAMS) {
+        while (teamCount(room, team) < target && addBot(room, team));
+      }
+    } else if (req.action === 'add' && TEAMS.includes(req.team)) {
+      addBot(room, req.team);
+    } else if (req.action === 'clear') {
+      for (const p of [...room.players.values()]) if (p.bot) removeBot(room, p);
+    }
     broadcastLobby(room);
   });
 
@@ -231,12 +286,15 @@ io.on('connection', (socket) => {
       if (p && p.key === data.key) player = p; // 새로고침/재접속
     }
     if (!player) {
-      if (room.players.size >= MAX_PLAYERS) return reply({ ok: false, error: '방이 가득 찼어요.' });
+      const hasBot = [...room.players.values()].some((p) => p.bot);
+      if (room.players.size >= MAX_PLAYERS && !hasBot) return reply({ ok: false, error: '방이 가득 찼어요.' });
+      const team = smallerTeam(room);
+      makeRoomForHuman(room, team);
       player = {
         id: token().slice(0, 8),
         key: token(),
         name: cleanName(data.name),
-        team: smallerTeam(room),
+        team,
         ready: false,
       };
       room.players.set(player.id, player);

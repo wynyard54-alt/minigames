@@ -101,16 +101,20 @@
       $(team + 'List').innerHTML = list
         .map(
           (p) =>
-            `<li data-id="${p.id}" class="${p.ready ? 'ready' : ''} ${p.connected ? '' : 'off'}">` +
+            `<li data-id="${p.id}" class="${p.bot ? 'bot' : p.ready ? 'ready' : ''} ${p.connected ? '' : 'off'}">` +
             `<span class="pname">${esc(p.name)}</span>` +
-            `<span class="badge">${p.connected ? (p.ready ? '준비 완료' : '대기') : '연결 끊김'}</span></li>`
+            `<span class="badge">${p.bot ? '🤖 AI' : p.connected ? (p.ready ? '준비 완료' : '대기') : '연결 끊김'}</span></li>`
         )
         .join('');
     }
-    const ready = players.filter((p) => p.ready).length;
-    const total = players.length;
-    $('startBtn').disabled = total === 0;
-    $('readyInfo').textContent = total === 0 ? '학생을 기다리는 중…' : `준비 완료 ${ready} / ${total}명`;
+    const humans = players.filter((p) => !p.bot);
+    const ready = humans.filter((p) => p.ready).length;
+    const total = humans.length;
+    const bots = players.length - total;
+    $('startBtn').disabled = players.length === 0;
+    $('readyInfo').textContent =
+      (total === 0 ? '학생을 기다리는 중…' : `준비 완료 ${ready} / ${total}명`) + (bots ? ` · AI ${bots}명` : '');
+    $('clearBotsBtn').disabled = bots === 0;
     $('startBtn').textContent = total > 0 && ready === total ? '게임 시작!' : '게임 시작';
     $('startBtn').classList.toggle('pulse', total > 0 && ready === total);
   }
@@ -120,11 +124,15 @@
       const li = e.target.closest('li');
       if (!li) return;
       const name = li.querySelector('.pname').textContent;
-      if (confirm(`${name} 학생을 내보낼까요?`)) socket.emit('host:kick', li.dataset.id);
+      if (li.classList.contains('bot') || confirm(`${name} 학생을 내보낼까요?`)) socket.emit('host:kick', li.dataset.id);
     };
   }
 
   $('shuffleBtn').onclick = () => socket.emit('host:shuffle');
+  $('fillBotsBtn').onclick = () => socket.emit('host:bots', { action: 'fill' });
+  $('addRedBot').onclick = () => socket.emit('host:bots', { action: 'add', team: 'red' });
+  $('addBlueBot').onclick = () => socket.emit('host:bots', { action: 'add', team: 'blue' });
+  $('clearBotsBtn').onclick = () => socket.emit('host:bots', { action: 'clear' });
 
   function startGame() {
     const players = lobby ? lobby.players : [];

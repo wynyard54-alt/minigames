@@ -183,6 +183,34 @@ function engineTests() {
   assert.equal(lobby.state, 'lobby');
   assert.ok(lobby.players.every((p) => !p.ready));
 
+  // AI 봇: 빈자리 채우기 → 학생이 들어오면 AI가 비켜 줌 → 봇과 함께 경기
+  host.emit('host:bots', { action: 'fill' });
+  await wait(150);
+  const count = (team, bot) => lobby.players.filter((p) => p.team === team && !!p.bot === bot).length;
+  assert.equal(lobby.players.length, 8, 'fill to 4 per team');
+  assert.equal(count('red', true) + count('blue', true), 4);
+  const late = connect();
+  const lateRes = await ack(late, 'player:join', { code, name: '늦게온애' });
+  assert.ok(lateRes.ok);
+  await wait(150);
+  assert.equal(lobby.players.length, 8, 'a bot made room for the new student');
+  assert.equal(count('red', false) + count('red', true), count('blue', false) + count('blue', true));
+  const started2 = once(host, 'game:start');
+  host.emit('host:start');
+  await started2;
+  await wait(3300 + 8000);
+  const botKills = snap.players.filter((p) => p.bot).reduce((n, p) => n + p.k, 0);
+  assert.ok(snap.players.some((p) => p.bot), 'bots are in the match');
+  console.log('bot kills after 8s:', botKills, 'score', snap.score);
+  host.emit('host:bots', { action: 'clear' });
+  const over2 = once(host, 'game:over');
+  host.emit('host:stop');
+  await over2;
+  await wait(100);
+  host.emit('host:bots', { action: 'clear' });
+  await wait(100);
+  assert.equal(lobby.players.filter((p) => p.bot).length, 0, 'clear removes bots');
+
   console.log('smoke test OK');
   process.exit(0);
 })().catch((e) => {

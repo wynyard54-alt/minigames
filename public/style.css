@@ -228,6 +228,19 @@ body {
 .plist li.ready {
   background: rgba(76, 219, 106, 0.18);
 }
+.plist li.bot {
+  background: rgba(197, 140, 255, 0.12);
+  border: 1px dashed rgba(197, 140, 255, 0.4);
+}
+.plist li.bot .badge {
+  color: #c58cff;
+}
+.red-text {
+  color: var(--red) !important;
+}
+.blue-text {
+  color: var(--blue) !important;
+}
 .plist li.off {
   opacity: 0.4;
 }
