@@ -64,10 +64,10 @@ const SPAWNS = {
   blue: [{ x: W - 90, y: 450 }, { x: W - 90, y: 600 }, { x: W - 90, y: 300 }, { x: W - 170, y: 680 }, { x: W - 170, y: 220 }, { x: W - 170, y: 450 }],
 };
 
-// 개인 점수: 킬 +3, 어시스트 +1, 데스 -2 (팀 점수는 킬 수 그대로)
+// 개인 점수: 킬 +3, 어시스트 +1, 데스 -2, 0점 아래로는 내려가지 않음 (팀 점수는 킬 수 그대로)
 const POINTS = { kill: 3, assist: 1, death: -2 };
 function points(f) {
-  return f.kills * POINTS.kill + f.assists * POINTS.assist + f.deaths * POINTS.death;
+  return Math.max(0, f.kills * POINTS.kill + f.assists * POINTS.assist + f.deaths * POINTS.death);
 }
 
 // 등수: 점수 → 킬 → 어시 → 데스 적은 순

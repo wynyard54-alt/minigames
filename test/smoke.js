@@ -51,9 +51,9 @@ function engineTests() {
   m2.damage(b1, 'r2', 80, false);
   assert.deepEqual([r2.kills, r1.assists, r2.assists, r3.assists, b1.deaths], [1, 1, 0, 0, 1]);
   assert.equal(m2.result().players.find((p) => p.id === 'r1').assists, 1);
-  // 개인 점수 = 킬×3 + 어시×1 − 데스×2, 등수는 점수 순
+  // 개인 점수 = 킬×3 + 어시×1 − 데스×2 (최저 0점), 등수는 점수 순
   const res2 = m2.result().players;
-  assert.deepEqual(res2.map((p) => [p.id, p.points]), [['r2', 3], ['r1', 1], ['r3', 0], ['b1', -2]]);
+  assert.deepEqual(res2.map((p) => [p.id, p.points]), [['r2', 3], ['r1', 1], ['r3', 0], ['b1', 0]]);
 
   // 부시: 안에 들어가면 숨고, 적이 가까이 오거나 쏘면 드러난다
   const bush = WORLD.bushes[0];
