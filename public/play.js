@@ -153,7 +153,7 @@
       const fill = i < s.ammo ? 1 : i === s.ammo ? s.reload : 0;
       pips[i].style.setProperty('--fill', fill);
     }
-    $('kd').textContent = `${s.kills}킬 ${s.deaths}데스 ${s.assists}어시`;
+    $('kd').textContent = `${s.kills}킬 ${s.deaths}데스 ${s.assists}어시 · ${s.points}점`;
     superReady = s.alive && s.charge >= s.superMax;
     $('superBtn').classList.toggle('ready', superReady);
     $('superBtn').style.setProperty('--p', s.charge / s.superMax);
@@ -198,7 +198,7 @@
     $('pScore').innerHTML = `<span style="color:${TEAM_COLOR.red}">${r.score.red}</span> : <span style="color:${TEAM_COLOR.blue}">${r.score.blue}</span>`;
     const rank = r.players.findIndex((p) => p.id === me.id);
     const mine = r.players[rank];
-    $('pMine').textContent = mine ? `나: ${mine.kills}킬 ${mine.deaths}데스 ${mine.assists}어시 · 전체 ${rank + 1}등` : '';
+    $('pMine').textContent = mine ? `나: ${mine.kills}킬 ${mine.deaths}데스 ${mine.assists}어시 · ${mine.points}점 · 전체 ${rank + 1}등` : '';
     show('result');
   });
 

@@ -365,7 +365,7 @@ body {
 .lb-head,
 .lb-row {
   display: grid;
-  grid-template-columns: minmax(80px, 120px) repeat(3, 40px);
+  grid-template-columns: minmax(80px, 120px) repeat(4, 40px);
   gap: 4px;
   padding: 3px 4px;
 }
@@ -391,6 +391,10 @@ body {
 }
 .lb-row.dead {
   opacity: 0.45;
+}
+.lb-row b {
+  text-align: center;
+  color: var(--gold);
 }
 .corner-code b {
   color: var(--gold);

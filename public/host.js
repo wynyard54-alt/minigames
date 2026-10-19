@@ -542,9 +542,9 @@
     for (const team of ['red', 'blue']) {
       const rows = snap.players
         .filter((p) => p.t === team)
-        .sort((a, b) => b.k - a.k || b.as - a.as || a.d - b.d);
+        .sort((a, b) => b.pt - a.pt || b.k - a.k || b.as - a.as || a.d - b.d);
       $(team === 'red' ? 'lbRed' : 'lbBlue').innerHTML = rows
-        .map((p) => `<div class="lb-row${p.al ? '' : ' dead'}"><span>${esc(p.n)}</span><span>${p.k}</span><span>${p.d}</span><span>${p.as}</span></div>`)
+        .map((p) => `<div class="lb-row${p.al ? '' : ' dead'}"><span>${esc(p.n)}</span><span>${p.k}</span><span>${p.d}</span><span>${p.as}</span><b>${p.pt}</b></div>`)
         .join('');
     }
   }
@@ -563,15 +563,15 @@
     $('finalScore').innerHTML =
       `<span style="color:${TEAM_COLOR.red}">${r.score.red}</span> : <span style="color:${TEAM_COLOR.blue}">${r.score.blue}</span>`;
     const top = r.players[0];
-    $('mvp').innerHTML = top && top.kills > 0 ? `MVP 🏆 <b style="color:${TEAM_COLOR[top.team]}">${esc(top.name)}</b> (${top.kills}킬)` : '';
+    $('mvp').innerHTML = top && top.points > 0 ? `MVP 🏆 <b style="color:${TEAM_COLOR[top.team]}">${esc(top.name)}</b> (${top.points}점)` : '';
     $('board').innerHTML =
-      '<tr><th>순위</th><th>이름</th><th>팀</th><th>킬</th><th>데스</th><th>어시</th></tr>' +
+      '<tr><th>순위</th><th>이름</th><th>팀</th><th>킬</th><th>데스</th><th>어시</th><th>점수</th></tr>' +
       r.players
         .slice(0, 10)
         .map(
           (p, i) =>
             `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td style="color:${TEAM_COLOR[p.team]}">${TEAM_NAME[p.team]}</td>` +
-            `<td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td></tr>`
+            `<td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td><td><b>${p.points}</b></td></tr>`
         )
         .join('');
   }

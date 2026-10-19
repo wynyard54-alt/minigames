@@ -64,6 +64,17 @@ const SPAWNS = {
   blue: [{ x: W - 90, y: 450 }, { x: W - 90, y: 600 }, { x: W - 90, y: 300 }, { x: W - 170, y: 680 }, { x: W - 170, y: 220 }, { x: W - 170, y: 450 }],
 };
 
+// 개인 점수: 킬 +3, 어시스트 +1, 데스 -2 (팀 점수는 킬 수 그대로)
+const POINTS = { kill: 3, assist: 1, death: -2 };
+function points(f) {
+  return f.kills * POINTS.kill + f.assists * POINTS.assist + f.deaths * POINTS.death;
+}
+
+// 등수: 점수 → 킬 → 어시 → 데스 적은 순
+function rankOrder(a, b) {
+  return b.points - a.points || b.kills - a.kills || b.assists - a.assists || a.deaths - b.deaths;
+}
+
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
 }
@@ -472,8 +483,9 @@ class Match {
       kills: f.kills,
       deaths: f.deaths,
       assists: f.assists,
+      points: points(f),
     }));
-    list.sort((a, b) => b.kills - a.kills || b.assists - a.assists || a.deaths - b.deaths);
+    list.sort(rankOrder);
     let winner = 'draw';
     if (this.score.red > this.score.blue) winner = 'red';
     else if (this.score.blue > this.score.red) winner = 'blue';
@@ -508,6 +520,7 @@ class Match {
         k: f.kills,
         d: f.deaths,
         as: f.assists,
+        pt: points(f),
         c: f.connected,
       })),
       bullets: this.bullets.map((b) => [b.id, r(b.x), r(b.y), b.team === 'red' ? 0 : 1]),
@@ -533,6 +546,7 @@ class Match {
       kills: f.kills,
       deaths: f.deaths,
       assists: f.assists,
+      points: points(f),
       charge: f.charge,
       superMax: SUPER_HITS,
       hidden: f.hidden,
@@ -544,5 +558,6 @@ class Match {
 module.exports = {
   Match,
   TEAMS,
+  POINTS,
   WORLD: { W, H, PLAYER_R, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
 };
