@@ -13,8 +13,10 @@ const RELOAD_TIME = 0.9; // 탄 1발 충전 시간(초)
 const FIRE_COOLDOWN = 0.28;
 const RESPAWN_TIME = 3;
 const SPAWN_SHIELD = 1.5;
-const REGEN_DELAY = 3;
-const REGEN_RATE = 18; // hp/s
+// 체력은 우리 팀 리젠구역(스폰 구역) 안에서만 회복된다
+const SPAWN_ZONE_W = 220; // 맵 양 끝 리젠구역의 너비
+const REGEN_DELAY = 1; // 리젠구역에서 맞은 뒤 이 시간(초)이 지나야 회복 시작
+const REGEN_RATE = 35; // hp/s
 const MATCH_TIME = 120;
 const COUNTDOWN = 3;
 const TEAMS = ['red', 'blue'];
@@ -52,6 +54,10 @@ const HALF_BUSHES = [
 const BUSHES = [];
 for (const b of HALF_BUSHES) {
   BUSHES.push(b, { x: W - b.x - b.w, y: H - b.y - b.h, w: b.w, h: b.h });
+}
+
+function inHomeZone(f) {
+  return f.team === 'red' ? f.x <= SPAWN_ZONE_W : f.x >= W - SPAWN_ZONE_W;
 }
 
 function inBush(x, y) {
@@ -268,7 +274,6 @@ class Match {
     f.faceY = dy;
     f.ammo -= 1;
     f.cooldown = FIRE_COOLDOWN;
-    f.sinceHit = Math.min(f.sinceHit, REGEN_DELAY - 1); // 쏘는 중에는 회복이 늦어진다
     f.shield = 0; // 공격하면 스폰 보호막 해제
     f.reveal = REVEAL_TIME;
     this.bullets.push({
@@ -321,9 +326,12 @@ class Match {
         b.stuck = 0.7; // 벽에 막히면 잠깐 옆으로 돌아간다
         b.side = -b.side;
       }
+      // 체력이 낮으면 리젠구역으로 돌아가서 거의 다 찰 때까지 회복한다
+      if (f.hp < 35) b.retreat = true;
+      else if (f.hp >= 95) b.retreat = false;
       let tx = W / 2;
       let ty = b.lane;
-      if (f.hp < 35) {
+      if (b.retreat) {
         tx = f.team === 'red' ? 90 : W - 90;
         ty = f.y;
       } else if (target) {
@@ -335,7 +343,7 @@ class Match {
       const l = Math.hypot(dx, dy) || 1;
       dx /= l;
       dy /= l;
-      if (sees && f.hp >= 35) {
+      if (sees && !b.retreat) {
         // 적 쪽을 바라보며 비스듬히 다가간다. 가까우면 거의 멈춰서 방향만 맞춘다
         const a = Math.atan2(dy, dx) + b.side * 0.22;
         const speed = best < 220 ? 0.15 : 1;
@@ -442,7 +450,8 @@ class Match {
         f.reload = 0;
       }
       f.sinceHit += dt;
-      if (f.sinceHit >= REGEN_DELAY && f.hp < MAX_HP) f.hp = Math.min(MAX_HP, f.hp + REGEN_RATE * dt);
+      f.healing = inHomeZone(f) && f.sinceHit >= REGEN_DELAY && f.hp < MAX_HP;
+      if (f.healing) f.hp = Math.min(MAX_HP, f.hp + REGEN_RATE * dt);
 
       const { mx, my, ax, ay, aiming } = f.input;
       f.x += mx * SPEED * dt;
@@ -581,6 +590,7 @@ class Match {
       hid: f.hidden,
       ib: f.inBush,
       sr: f.charge >= SUPER_HITS,
+      hl: !!f.healing,
       k: f.kills,
       d: f.deaths,
       as: f.assists,
@@ -647,6 +657,7 @@ class Match {
       superMax: SUPER_HITS,
       hidden: f.hidden,
       inBush: f.inBush,
+      healing: !!f.healing,
     };
   }
 }
@@ -655,7 +666,7 @@ const GameEngine = {
   Match,
   TEAMS,
   POINTS,
-  WORLD: { W, H, PLAYER_R, SPEED, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
+  WORLD: { W, H, SPAWN_ZONE_W, PLAYER_R, SPEED, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
   // 폰에서 내 캐릭터를 미리 움직여 볼 때(예측) 서버와 똑같이 벽에 막히도록 같이 쓴다
   moveFighter(f, mx, my, dt) {
     f.x = clamp(f.x + mx * SPEED * dt, PLAYER_R, W - PLAYER_R);

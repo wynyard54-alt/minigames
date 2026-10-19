@@ -46,10 +46,28 @@ window.GameRender = (() => {
     }
     ctx.stroke();
     // 스폰 구역
-    ctx.fillStyle = 'rgba(255,77,94,0.10)';
-    ctx.fillRect(0, 0, 220, world.H);
-    ctx.fillStyle = 'rgba(61,139,255,0.10)';
-    ctx.fillRect(world.W - 220, 0, 220, world.H);
+    // 리젠구역: 우리 팀만 체력이 회복되는 곳
+    const zw = world.SPAWN_ZONE_W;
+    ctx.fillStyle = 'rgba(255,77,94,0.12)';
+    ctx.fillRect(0, 0, zw, world.H);
+    ctx.fillStyle = 'rgba(61,139,255,0.12)';
+    ctx.fillRect(world.W - zw, 0, zw, world.H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.setLineDash([8, 10]);
+    ctx.beginPath();
+    ctx.moveTo(zw, 0);
+    ctx.lineTo(zw, world.H);
+    ctx.moveTo(world.W - zw, 0);
+    ctx.lineTo(world.W - zw, world.H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    for (const y of [world.H * 0.25, world.H * 0.75]) {
+      ctx.fillText('✚ 회복', zw / 2, y);
+      ctx.fillText('✚ 회복', world.W - zw / 2, y);
+    }
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.setLineDash([16, 16]);
     ctx.beginPath();
@@ -105,6 +123,16 @@ window.GameRender = (() => {
     ctx.arc(d.x + ex - p.fy * 7, d.y + ey + p.fx * 7, 5, 0, Math.PI * 2);
     ctx.arc(d.x + ex + p.fy * 7, d.y + ey - p.fx * 7, 5, 0, Math.PI * 2);
     ctx.fill();
+    // 리젠구역에서 회복 중: 초록 십자가 위로 떠오른다
+    if (p.hl) {
+      const t = (now / 700) % 1;
+      ctx.globalAlpha *= 1 - t;
+      ctx.fillStyle = '#4cdb6a';
+      ctx.font = 'bold 22px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✚', d.x + R, d.y - R * 0.3 - t * 26);
+      ctx.globalAlpha /= Math.max(0.01, 1 - t);
+    }
     if (p.sh) {
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
       ctx.lineWidth = 3;

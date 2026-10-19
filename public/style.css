@@ -799,6 +799,10 @@ body.started .zone > span {
   pointer-events: none;
   white-space: nowrap;
 }
+.bush-badge.heal {
+  bottom: calc(env(safe-area-inset-bottom) + 50px);
+  background: rgba(40, 140, 70, 0.9);
+}
 .stick {
   position: fixed;
   width: 120px;

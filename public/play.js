@@ -184,6 +184,7 @@
     $('superTxt').textContent = superReady ? '준비 완료!' : `${s.charge}/${s.superMax}`;
     $('bushBadge').classList.toggle('hidden', !(s.alive && s.inBush));
     $('bushBadge').textContent = s.hidden ? '🌿 부시에 숨는 중' : '🌿 부시 안 (지금은 보여요)';
+    $('healBadge').classList.toggle('hidden', !s.healing);
     $('deadOverlay').classList.toggle('hidden', s.alive);
     $('respawnTxt').textContent = Math.ceil(s.respawn) + '초 후 부활';
     $('padCountdown').classList.toggle('hidden', s.phase !== 'countdown');

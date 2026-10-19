@@ -37,6 +37,20 @@ function engineTests() {
   assert.ok(b.hp < 100, 'enemy in radius takes super damage');
   assert.equal(c.hp, 95, 'enemy out of radius is untouched');
 
+  // 회복: 우리 팀 리젠구역에서만, 밖에서는 시간이 지나도 그대로
+  const m3 = new Match([{ id: 'h', name: 'H', team: 'red' }]);
+  m3.step(3.1);
+  const h = m3.fighters.get('h');
+  Object.assign(h, { x: 800, y: 300, hp: 40, sinceHit: 10 });
+  for (let i = 0; i < 90; i++) m3.step(1 / 30);
+  assert.equal(Math.round(h.hp), 40, 'no regen outside home zone');
+  Object.assign(h, { x: 100, y: 450 });
+  for (let i = 0; i < 30; i++) m3.step(1 / 30);
+  assert.ok(h.hp > 70, 'regen in home zone');
+  Object.assign(h, { x: WORLD.W - 100, hp: 40 });
+  for (let i = 0; i < 30; i++) m3.step(1 / 30);
+  assert.equal(Math.round(h.hp), 40, 'no regen in enemy zone');
+
   // 어시스트: 한 대라도 맞힌 적을 우리 팀이 잡으면 어시스트
   const m2 = new Match([
     { id: 'r1', name: 'R1', team: 'red' },
