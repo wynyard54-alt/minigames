@@ -9,7 +9,7 @@ const BULLET_RANGE = 560;
 const BULLET_DMG = 25;
 const MAX_HP = 100;
 const AMMO_MAX = 3;
-const RELOAD_TIME = 0.9; // 탄 1발 충전 시간(초)
+const RELOAD_TIME = 0.9; // 탄창 교체 시간(초): 다 쏘면 이 시간 뒤에 한 번에 꽉 찬다
 const FIRE_COOLDOWN = 0.28;
 const RESPAWN_TIME = 3;
 const SPAWN_SHIELD = 1.5;
@@ -440,11 +440,12 @@ class Match {
       if (f.shield > 0) f.shield -= dt;
       if (f.reveal > 0) f.reveal -= dt;
       if (f.cooldown > 0) f.cooldown -= dt;
-      if (f.ammo < AMMO_MAX) {
+      // 탄창 교체: 한 발씩 차지 않고, 다 쓰면 교체 시간 뒤에 한 번에 꽉 찬다
+      if (f.ammo === 0) {
         f.reload += dt;
         if (f.reload >= RELOAD_TIME) {
           f.reload = 0;
-          f.ammo += 1;
+          f.ammo = AMMO_MAX;
         }
       } else {
         f.reload = 0;
@@ -646,7 +647,7 @@ class Match {
       hp: Math.round(f.hp),
       maxHp: MAX_HP,
       ammo: f.ammo,
-      reload: f.ammo < AMMO_MAX ? f.reload / RELOAD_TIME : 1,
+      reload: f.ammo === 0 ? f.reload / RELOAD_TIME : 1, // 탄창 교체 진행률
       alive: f.alive,
       respawn: f.alive ? 0 : Math.max(0, f.respawn),
       kills: f.kills,

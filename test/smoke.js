@@ -37,6 +37,19 @@ function engineTests() {
   assert.ok(b.hp < 100, 'enemy in radius takes super damage');
   assert.equal(c.hp, 95, 'enemy out of radius is untouched');
 
+  // 탄창: 한 발씩 차지 않고, 다 쓰면 교체 시간 뒤에 한 번에 3발
+  const m4 = new Match([{ id: 'g', name: 'G', team: 'red' }]);
+  m4.step(3.1);
+  const g = m4.fighters.get('g');
+  g.ammo = 1;
+  for (let i = 0; i < 60; i++) m4.step(1 / 30);
+  assert.equal(g.ammo, 1, 'partial magazine does not refill');
+  g.ammo = 0;
+  for (let i = 0; i < 20; i++) m4.step(1 / 30);
+  assert.equal(g.ammo, 0, 'still reloading');
+  for (let i = 0; i < 10; i++) m4.step(1 / 30);
+  assert.equal(g.ammo, 3, 'full magazine after reload');
+
   // 회복: 우리 팀 리젠구역에서만, 밖에서는 시간이 지나도 그대로
   const m3 = new Match([{ id: 'h', name: 'H', team: 'red' }]);
   m3.step(3.1);

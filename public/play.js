@@ -174,7 +174,7 @@
     $('hpFill').style.background = s.hp > 50 ? '#4cdb6a' : s.hp > 25 ? '#ffc93c' : '#ff5555';
     const pips = $('ammo').children;
     for (let i = 0; i < pips.length; i++) {
-      const fill = i < s.ammo ? 1 : i === s.ammo ? s.reload : 0;
+      const fill = s.ammo === 0 ? s.reload : i < s.ammo ? 1 : 0; // 교체 중에는 세 칸이 같이 차오름
       pips[i].style.setProperty('--fill', fill);
     }
     $('kd').textContent = `${s.kills}킬 ${s.deaths}데스 ${s.assists}어시 · ${s.points}점`;
