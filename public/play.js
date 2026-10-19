@@ -2,7 +2,7 @@
   const socket = io();
   const $ = (id) => document.getElementById(id);
   const TEAM_NAME = { red: '빨강팀', blue: '파랑팀' };
-  const TEAM_COLOR = { red: '#ff4d5e', blue: '#3d8bff' };
+  const TEAM_COLOR = GameRender.TEAM_COLOR;
 
   const params = new URLSearchParams(location.search);
   let code = (params.get('room') || '').replace(/\D/g, '').slice(0, 4);
@@ -10,6 +10,8 @@
   let lobby = null;
   let joined = false;
   let ammoMax = 3;
+  let world = null;
+  let view = null; // 서버가 보내 주는 내 주변 화면
 
   function show(id) {
     for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== id);
@@ -54,6 +56,7 @@
       joined = true;
       me = { id: res.id, key: res.key, name: res.name };
       ammoMax = res.world.AMMO_MAX;
+      world = res.world;
       store.set('mg:player:' + code, me);
       $('myName').textContent = res.name;
       $('joinError').textContent = '';
@@ -123,10 +126,19 @@
   };
 
   // ---------- 게임 ----------
-  socket.on('game:start', () => {
+  let hintTimer = 0;
+  socket.on('game:start', (data) => {
     if (!joined) return;
+    world = data.world;
+    view = null;
+    scene.reset();
+    $('pFeed').innerHTML = '';
     resetSticks();
     show('pad');
+    // 조작 안내 글씨는 잠깐 보여 주고 흐리게
+    document.body.classList.remove('started');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => document.body.classList.add('started'), 7000);
   });
 
   function fmtTime(t) {
@@ -139,8 +151,11 @@
     for (let i = 0; i < ammoMax; i++) $('ammo').appendChild(document.createElement('i'));
   }
 
-  socket.on('me', (s) => {
-    if (!s || !joined) return;
+  socket.on('view', (v) => {
+    if (!v || !joined) return;
+    view = v;
+    renderFeed(v.feed);
+    const s = v.me;
     if ($('pad').classList.contains('hidden')) show('pad');
     document.body.dataset.team = s.team;
     $('sRed').textContent = s.score.red;
@@ -165,6 +180,79 @@
     $('padCountdown').classList.toggle('hidden', s.phase !== 'countdown');
     $('padCd').textContent = Math.ceil(s.timer);
   });
+
+  // ---------- 내 폰의 게임 화면 ----------
+  const canvas = $('view');
+  const ctx = canvas.getContext('2d');
+  const scene = GameRender.createScene();
+  const cam = { x: 0, y: 0, s: 1, ready: false };
+  socket.on('fx', (ev) => scene.fx(ev));
+
+  let feedKey = '';
+  function renderFeed(feed) {
+    const key = feed.map((f) => f.t).join(',');
+    if (key === feedKey) return;
+    feedKey = key;
+    $('pFeed').innerHTML = feed
+      .slice()
+      .reverse()
+      .map(
+        (f) =>
+          `<li><b style="color:${TEAM_COLOR[f.killerTeam] || '#fff'}">${esc(f.killer)}</b> ➜ ` +
+          `<b style="color:${TEAM_COLOR[f.victimTeam]}">${esc(f.victim)}</b></li>`
+      )
+      .join('');
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  function resizeView() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1); // 오래된 폰도 버벅이지 않게 최대 2배
+    const w = Math.round(innerWidth * dpr);
+    const h = Math.round(innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    return dpr;
+  }
+
+  // 내 캐릭터를 따라가는 카메라. 화면이 넓으면 맵 전체가 들어오게
+  function updateCamera(target) {
+    const cw = innerWidth;
+    const ch = innerHeight;
+    const fit = Math.min(cw / world.W, ch / world.H);
+    const s = Math.max(fit, Math.min(cw, ch) / 620);
+    const vw = cw / s;
+    const vh = ch / s;
+    const x = vw >= world.W ? (world.W - vw) / 2 : Math.max(0, Math.min(world.W - vw, target.x - vw / 2));
+    const y = vh >= world.H ? (world.H - vh) / 2 : Math.max(-40 / s, Math.min(world.H - vh, target.y - vh / 2));
+    const k = cam.ready ? 0.15 : 1;
+    cam.x += (x - cam.x) * k;
+    cam.y += (y - cam.y) * k;
+    cam.s = s;
+    cam.ready = true;
+  }
+
+  let lastFrame = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+    requestAnimationFrame(frame);
+    if (!view || !world || !me || $('pad').classList.contains('hidden')) return;
+    const dpr = resizeView();
+    scene.smooth(view, dt);
+    const mine = scene.pos(me.id);
+    if (mine) updateCamera(mine);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0d1020';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(cam.s * dpr, 0, 0, cam.s * dpr, -cam.x * cam.s * dpr, -cam.y * cam.s * dpr);
+    scene.draw(ctx, world, view, dt, now, { meId: me.id, myTeam: view.me.team });
+  }
+  requestAnimationFrame(frame);
 
   function buzz(pattern) {
     if (navigator.vibrate) navigator.vibrate(pattern); // 아이폰은 지원하지 않음

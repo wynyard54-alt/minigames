@@ -113,9 +113,9 @@ function onMatchEvent(room, ev) {
   } else if (ev.type === 'kill') {
     sendToPlayer(room, ev.killer, 'ev', { type: 'kill' });
     sendToPlayer(room, ev.victim, 'ev', { type: 'dead' });
-    if (room.hostSocket) io.to(room.hostSocket).emit('fx', ev);
+    io.to(room.chan).emit('fx', ev); // 선생님 화면과 학생 폰 모두 효과 표시
   } else if (ev.type === 'hit' || ev.type === 'super') {
-    if (room.hostSocket) io.to(room.hostSocket).emit('fx', ev);
+    io.to(room.chan).emit('fx', ev);
   } else if (ev.type === 'superReady') {
     sendToPlayer(room, ev.id, 'ev', { type: 'superReady' });
   } else if (ev.type === 'over') {
@@ -328,9 +328,10 @@ setInterval(() => {
     if (!room.match) continue; // 이번 틱에 경기가 끝남
     room.tickCount += 1;
     if (room.hostSocket) io.to(room.hostSocket).volatile.emit('state', room.match.snapshot());
-    if (room.tickCount % 3 === 0) {
+    if (room.tickCount % 2 === 0) {
+      // 학생 폰: 초당 15번, 각자 자기 주변 화면
       for (const p of room.players.values()) {
-        if (p.socketId) io.to(p.socketId).volatile.emit('me', room.match.personal(p.id));
+        if (p.socketId) io.to(p.socketId).volatile.emit('view', room.match.view(p.id));
       }
     }
   }

@@ -555,6 +555,9 @@ body[data-team='blue'] #pad {
   background: linear-gradient(180deg, #13203a, var(--bg) 40%);
 }
 .pad-top {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(10, 12, 24, 0.85), rgba(10, 12, 24, 0.35));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -607,7 +610,17 @@ body[data-team='blue'] #pad {
   font-size: 14px;
   color: var(--muted);
 }
+#view {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
 .zones {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -617,13 +630,16 @@ body[data-team='blue'] #pad {
   align-items: center;
   justify-content: center;
   text-align: center;
-  color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.12);
   font-size: 22px;
   font-weight: 800;
   touch-action: none;
 }
-.zone + .zone {
-  border-left: 2px dashed rgba(255, 255, 255, 0.08);
+.zone > span {
+  transition: opacity 1s;
+}
+body.started .zone > span {
+  opacity: 0;
 }
 .fire-zone {
   position: relative;
@@ -687,6 +703,25 @@ body[data-team='blue'] #pad {
 .super-btn.ready small {
   color: #fff;
 }
+.pfeed {
+  position: fixed;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + 56px);
+  right: max(12px, env(safe-area-inset-right));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  font-size: 12px;
+  pointer-events: none;
+}
+.pfeed li {
+  background: rgba(0, 0, 0, 0.55);
+  padding: 3px 8px;
+  border-radius: 8px;
+}
 .bush-badge {
   position: fixed;
   left: 50%;
@@ -735,8 +770,9 @@ body[data-team='blue'] #pad {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: rgba(10, 12, 24, 0.7);
+  background: rgba(10, 12, 24, 0.45);
   font-size: 28px;
+  z-index: 3;
   font-weight: 800;
   pointer-events: none;
 }

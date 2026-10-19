@@ -73,6 +73,22 @@ function engineTests() {
   m.fire('b', { facing: true });
   m.updateHidden();
   assert.equal(b.hidden, false, 'shooting reveals bush player');
+
+  // 폰 화면: 부시에 숨은 적은 안 보내고, 숨은 우리 팀은 보낸다
+  b.reveal = 0;
+  b.x = bush.x + bush.w / 2;
+  b.y = bush.y + bush.h / 2;
+  a.x = b.x + 300;
+  a.y = b.y;
+  c.x = b.x + 20;
+  c.y = b.y;
+  c.reveal = 0;
+  m.updateHidden();
+  assert.ok(b.hidden);
+  const ids = (v) => v.players.map((p) => p.id).sort();
+  assert.deepEqual(ids(m.view('a')), ['a'], 'enemy hidden in bush is not sent to me');
+  assert.deepEqual(ids(m.view('c')), ['a', 'b', 'c'], 'hidden teammate is still sent');
+  assert.equal(m.view('a').me.team, 'red');
   console.log('engine tests OK');
 }
 
@@ -131,7 +147,7 @@ function engineTests() {
   let snap;
   host.on('state', (s) => (snap = s));
   let personal;
-  players[1].s.on('me', (m) => (personal = m));
+  players[1].s.on('view', (v) => (personal = v.me));
 
   await wait(3300); // 카운트다운
   assert.equal(snap.phase, 'playing');

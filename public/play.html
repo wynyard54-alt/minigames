@@ -41,13 +41,14 @@
       오른쪽 발사 버튼: 바라보는 방향으로 발사, 누르고 있으면 연사<br />
       필살기: 총알 5발을 맞히면 충전, 누르면 주변 적 모두 공격<br />
       초록 부시에 들어가면 큰 화면에서 사라져요<br />
-      게임 화면은 앞의 큰 화면을 보세요!
+      내 폰에 게임 화면이 나오고, 큰 화면에는 전체 지도가 나와요
     </div>
     <button id="leaveBtn" class="btn ghost tiny">나가기</button>
   </section>
 
   <!-- 컨트롤러 -->
   <section id="pad" class="screen hidden">
+    <canvas id="view"></canvas>
     <div class="pad-top">
       <div class="pad-score"><span class="r" id="sRed">0</span> : <span class="b" id="sBlue">0</span></div>
       <div class="pad-timer" id="pTimer">2:00</div>
@@ -65,9 +66,10 @@
       </div>
     </div>
     <div id="stickL" class="stick hidden"><div class="knob"></div></div>
+    <ul id="pFeed" class="pfeed"></ul>
     <div id="bushBadge" class="bush-badge hidden">🌿 부시에 숨는 중</div>
     <div id="deadOverlay" class="overlay hidden"><div>쓰러졌어요!</div><div id="respawnTxt" class="big-num"></div></div>
-    <div id="padCountdown" class="overlay hidden"><div>앞 화면을 보세요!</div><div id="padCd" class="big-num"></div></div>
+    <div id="padCountdown" class="overlay hidden"><div>곧 시작해요!</div><div id="padCd" class="big-num"></div></div>
     <div id="rotateHint" class="rotate-hint">폰을 가로로 돌리면 더 편해요</div>
   </section>
 
@@ -86,6 +88,7 @@
   </section>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="render.js"></script>
   <script src="play.js"></script>
 </body>
 </html>

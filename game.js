@@ -24,6 +24,8 @@ const SUPER_RADIUS = 210;
 const SUPER_DMG = 45;
 const REVEAL_RANGE = 130; // 부시 안에 있어도 적이 이만큼 가까우면 보인다
 const REVEAL_TIME = 1; // 쏘거나 맞으면 이 시간(초) 동안 부시 밖으로 드러난다
+const VIEW_RANGE_X = 1100; // 폰 화면에 보낼 범위 (내 위치 기준, 화면보다 넉넉하게)
+const VIEW_RANGE_Y = 800;
 
 // 왼쪽 절반의 벽만 정의하고 점대칭으로 오른쪽을 만든다 → 양 팀이 공평한 맵
 const HALF_WALLS = [
@@ -492,39 +494,65 @@ class Match {
     return { winner, score: { ...this.score }, players: list };
   }
 
+  // 화면에 그릴 플레이어 한 명의 정보
+  playerState(f) {
+    const r = (v) => Math.round(v);
+    return {
+      id: f.id,
+      n: f.name,
+      t: f.team,
+      x: r(f.x),
+      y: r(f.y),
+      hp: r(f.hp),
+      al: f.alive,
+      rs: f.alive ? 0 : Math.ceil(f.respawn),
+      sh: f.shield > 0,
+      am: f.ammo,
+      fx: Math.round(f.faceX * 100) / 100,
+      fy: Math.round(f.faceY * 100) / 100,
+      hf: f.hitFlash > 0,
+      hid: f.hidden,
+      ib: f.inBush,
+      sr: f.charge >= SUPER_HITS,
+      k: f.kills,
+      d: f.deaths,
+      as: f.assists,
+      pt: points(f),
+      c: f.connected,
+    };
+  }
+
+  bulletState(b) {
+    return [b.id, Math.round(b.x), Math.round(b.y), b.team === 'red' ? 0 : 1];
+  }
+
   // 프로젝터 화면용 전체 상태
   snapshot() {
-    const r = (v) => Math.round(v);
     return {
       phase: this.phase,
       timer: Math.max(0, this.timer),
       score: this.score,
-      players: [...this.fighters.values()].map((f) => ({
-        id: f.id,
-        n: f.name,
-        t: f.team,
-        x: r(f.x),
-        y: r(f.y),
-        hp: r(f.hp),
-        al: f.alive,
-        rs: f.alive ? 0 : Math.ceil(f.respawn),
-        sh: f.shield > 0,
-        am: f.ammo,
-        fx: Math.round(f.faceX * 100) / 100,
-        fy: Math.round(f.faceY * 100) / 100,
-        aim: f.input.aiming,
-        hf: f.hitFlash > 0,
-        hid: f.hidden,
-        ib: f.inBush,
-        sr: f.charge >= SUPER_HITS,
-        k: f.kills,
-        d: f.deaths,
-        as: f.assists,
-        pt: points(f),
-        c: f.connected,
-      })),
-      bullets: this.bullets.map((b) => [b.id, r(b.x), r(b.y), b.team === 'red' ? 0 : 1]),
+      players: [...this.fighters.values()].map((f) => this.playerState(f)),
+      bullets: this.bullets.map((b) => this.bulletState(b)),
       feed: this.feed,
+    };
+  }
+
+  // 학생 폰 화면용: 내 주변만, 부시에 숨은 적은 빼고 보낸다 (숨은 우리 팀은 보임)
+  view(id) {
+    const me = this.fighters.get(id);
+    if (!me) return null;
+    const near = (x, y) => Math.abs(x - me.x) < VIEW_RANGE_X && Math.abs(y - me.y) < VIEW_RANGE_Y;
+    const players = [];
+    for (const f of this.fighters.values()) {
+      if (f !== me && (!near(f.x, f.y) || (f.hidden && f.team !== me.team))) continue;
+      players.push(this.playerState(f));
+    }
+    return {
+      me: this.personal(id),
+      players,
+      bullets: this.bullets.filter((b) => near(b.x, b.y)).map((b) => this.bulletState(b)),
+      feed: this.feed.slice(-3),
     };
   }
 
