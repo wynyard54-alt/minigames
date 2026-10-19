@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>교실 배틀 - 선생님 화면</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="host">
+  <!-- 첫 화면 -->
+  <section id="home" class="screen center">
+    <h1 class="logo">교실 배틀</h1>
+    <p class="sub">빨강팀 vs 파랑팀 · 폰이 조이스틱이 되는 팀 슈팅 게임</p>
+    <button id="createBtn" class="btn big">방 만들기</button>
+    <p class="hint">이 화면을 프로젝터나 TV에 띄워 주세요.</p>
+  </section>
+
+  <!-- 대기실 -->
+  <section id="lobby" class="screen hidden">
+    <div class="lobby-wrap">
+      <div class="join-panel">
+        <div class="join-title">폰 카메라로 QR을 찍어서 들어오세요</div>
+        <img id="qr" class="qr" alt="입장 QR 코드" />
+        <div class="code-label">방 번호</div>
+        <div id="roomCode" class="room-code">----</div>
+        <div id="joinUrl" class="join-url"></div>
+        <div id="lanWarn" class="warn hidden"></div>
+      </div>
+      <div class="teams-panel">
+        <div class="teams">
+          <div class="team red">
+            <div class="team-head"><span>빨강팀</span><span id="redCount">0</span></div>
+            <ul id="redList" class="plist"></ul>
+          </div>
+          <div class="team blue">
+            <div class="team-head"><span>파랑팀</span><span id="blueCount">0</span></div>
+            <ul id="blueList" class="plist"></ul>
+          </div>
+        </div>
+        <div class="lobby-actions">
+          <div id="readyInfo" class="ready-info">학생을 기다리는 중…</div>
+          <div class="row">
+            <button id="shuffleBtn" class="btn ghost">팀 랜덤 섞기</button>
+            <button id="startBtn" class="btn big" disabled>게임 시작</button>
+          </div>
+          <p class="hint small">학생 이름을 누르면 내보낼 수 있어요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 게임 -->
+  <section id="game" class="screen hidden">
+    <canvas id="canvas"></canvas>
+    <div class="hud">
+      <div class="score red" id="scoreRed">0</div>
+      <div class="timer" id="timer">2:00</div>
+      <div class="score blue" id="scoreBlue">0</div>
+    </div>
+    <ul id="feed" class="feed"></ul>
+    <div class="corner-code">난입 방 번호 <b id="cornerCode"></b></div>
+    <button id="stopBtn" class="btn ghost tiny stop">경기 종료</button>
+    <div id="countdown" class="countdown hidden"></div>
+  </section>
+
+  <!-- 결과 -->
+  <section id="result" class="screen center hidden">
+    <div id="winner" class="winner"></div>
+    <div id="finalScore" class="final-score"></div>
+    <div id="mvp" class="mvp"></div>
+    <table id="board" class="board"></table>
+    <div class="row">
+      <button id="lobbyBtn" class="btn ghost">대기실로</button>
+      <button id="againBtn" class="btn big">한 판 더!</button>
+    </div>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="host.js"></script>
+</body>
+</html>
