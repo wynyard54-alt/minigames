@@ -318,12 +318,79 @@ body {
   border-radius: 10px;
   font-size: 18px;
 }
-.corner-code {
+.corner {
   position: absolute;
-  top: 14px;
+  top: 12px;
   left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.board-toggle {
+  border: 0;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.board-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.board-toggle:focus-visible {
+  outline: 3px solid var(--gold);
+}
+.corner-code {
   color: var(--muted);
   font-size: 16px;
+}
+.live-board {
+  position: absolute;
+  top: 56px;
+  left: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: rgba(10, 12, 24, 0.85);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.lb-head,
+.lb-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) repeat(3, 40px);
+  gap: 4px;
+  padding: 3px 4px;
+}
+.lb-head span:not(:first-child),
+.lb-row span:not(:first-child) {
+  text-align: center;
+}
+.lb-head {
+  font-weight: 800;
+  border-bottom: 2px solid;
+  margin-bottom: 2px;
+}
+.lb-team.red .lb-head {
+  color: var(--red);
+}
+.lb-team.blue .lb-head {
+  color: var(--blue);
+}
+.lb-row span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-row.dead {
+  opacity: 0.45;
 }
 .corner-code b {
   color: var(--gold);

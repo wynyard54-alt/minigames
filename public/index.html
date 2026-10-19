@@ -58,7 +58,14 @@
       <div class="score blue" id="scoreBlue">0</div>
     </div>
     <ul id="feed" class="feed"></ul>
-    <div class="corner-code">난입 방 번호 <b id="cornerCode"></b></div>
+    <div class="corner">
+      <button type="button" id="boardBtn" class="board-toggle" aria-expanded="false">전광판 ▾</button>
+      <div class="corner-code">난입 방 번호 <b id="cornerCode"></b></div>
+    </div>
+    <div id="livePanel" class="live-board hidden">
+      <div class="lb-team red"><div class="lb-head"><span>빨강팀</span><span>킬</span><span>데스</span><span>어시</span></div><div id="lbRed"></div></div>
+      <div class="lb-team blue"><div class="lb-head"><span>파랑팀</span><span>킬</span><span>데스</span><span>어시</span></div><div id="lbBlue"></div></div>
+    </div>
     <button id="stopBtn" class="btn ghost tiny stop">경기 종료</button>
     <div id="countdown" class="countdown hidden"></div>
   </section>

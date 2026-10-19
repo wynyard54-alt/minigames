@@ -259,6 +259,7 @@
     if (!snap || !world || document.getElementById('game').classList.contains('hidden')) return;
 
     // HUD
+    renderBoard(now);
     $('scoreRed').textContent = snap.score.red;
     $('scoreBlue').textContent = snap.score.blue;
     $('timer').textContent = snap.phase === 'countdown' ? '준비' : fmtTime(snap.timer);
@@ -464,7 +465,7 @@
     for (const team of ['red', 'blue']) {
       deadByTeam[team].forEach((p, i) => {
         const x = team === 'red' ? 110 : world.W - 110;
-        const y = 30 + i * 26;
+        const y = world.H - 20 - i * 26; // 위쪽은 킬 로그와 겹치므로 아래에서부터
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.fillText(`💀 ${p.n} ${p.rs}`, x, y);
       });
@@ -512,6 +513,43 @@
   }
   requestAnimationFrame(frame);
 
+  // ---------- 전광판 (킬/데스/어시스트) ----------
+  let boardOpen = false;
+  try {
+    boardOpen = localStorage.getItem('mg:board') === '1';
+  } catch {}
+  function setBoard(open) {
+    boardOpen = open;
+    $('livePanel').classList.toggle('hidden', !open);
+    $('boardBtn').textContent = open ? '전광판 ▴' : '전광판 ▾';
+    $('boardBtn').setAttribute('aria-expanded', String(open));
+    try {
+      localStorage.setItem('mg:board', open ? '1' : '0');
+    } catch {}
+    lastBoardAt = 0;
+  }
+  $('boardBtn').onclick = () => setBoard(!boardOpen);
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && !$('game').classList.contains('hidden')) {
+      e.preventDefault();
+      setBoard(!boardOpen);
+    }
+  });
+  let lastBoardAt = 0;
+  function renderBoard(now) {
+    if (!boardOpen || now - lastBoardAt < 250) return;
+    lastBoardAt = now;
+    for (const team of ['red', 'blue']) {
+      const rows = snap.players
+        .filter((p) => p.t === team)
+        .sort((a, b) => b.k - a.k || b.as - a.as || a.d - b.d);
+      $(team === 'red' ? 'lbRed' : 'lbBlue').innerHTML = rows
+        .map((p) => `<div class="lb-row${p.al ? '' : ' dead'}"><span>${esc(p.n)}</span><span>${p.k}</span><span>${p.d}</span><span>${p.as}</span></div>`)
+        .join('');
+    }
+  }
+  setBoard(boardOpen);
+
   // ---------- 결과 ----------
   function renderResult(r) {
     const w = $('winner');
@@ -527,13 +565,13 @@
     const top = r.players[0];
     $('mvp').innerHTML = top && top.kills > 0 ? `MVP 🏆 <b style="color:${TEAM_COLOR[top.team]}">${esc(top.name)}</b> (${top.kills}킬)` : '';
     $('board').innerHTML =
-      '<tr><th>순위</th><th>이름</th><th>팀</th><th>킬</th><th>데스</th></tr>' +
+      '<tr><th>순위</th><th>이름</th><th>팀</th><th>킬</th><th>데스</th><th>어시</th></tr>' +
       r.players
         .slice(0, 10)
         .map(
           (p, i) =>
             `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td style="color:${TEAM_COLOR[p.team]}">${TEAM_NAME[p.team]}</td>` +
-            `<td>${p.kills}</td><td>${p.deaths}</td></tr>`
+            `<td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td></tr>`
         )
         .join('');
   }

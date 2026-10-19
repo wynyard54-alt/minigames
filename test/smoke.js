@@ -37,6 +37,21 @@ function engineTests() {
   assert.ok(b.hp < 100, 'enemy in radius takes super damage');
   assert.equal(c.hp, 95, 'enemy out of radius is untouched');
 
+  // 어시스트: 한 대라도 맞힌 적을 우리 팀이 잡으면 어시스트
+  const m2 = new Match([
+    { id: 'r1', name: 'R1', team: 'red' },
+    { id: 'r2', name: 'R2', team: 'red' },
+    { id: 'r3', name: 'R3', team: 'red' },
+    { id: 'b1', name: 'B1', team: 'blue' },
+  ]);
+  m2.step(3.1);
+  const [r1, r2, r3, b1] = ['r1', 'r2', 'r3', 'b1'].map((id) => m2.fighters.get(id));
+  b1.shield = 0;
+  m2.damage(b1, 'r1', 25, false);
+  m2.damage(b1, 'r2', 80, false);
+  assert.deepEqual([r2.kills, r1.assists, r2.assists, r3.assists, b1.deaths], [1, 1, 0, 0, 1]);
+  assert.equal(m2.result().players.find((p) => p.id === 'r1').assists, 1);
+
   // 부시: 안에 들어가면 숨고, 적이 가까이 오거나 쏘면 드러난다
   const bush = WORLD.bushes[0];
   Object.assign(b, { x: bush.x + bush.w / 2, y: bush.y + bush.h / 2, reveal: 0 });

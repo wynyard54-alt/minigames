@@ -157,6 +157,8 @@ class Match {
       input: { mx: 0, my: 0, ax: 0, ay: 0, aiming: false, firing: false },
       kills: 0,
       deaths: 0,
+      assists: 0,
+      attackers: new Set(), // 이번 목숨 동안 나를 때린 적 (어시스트 계산용)
       charge: 0,
       reveal: 0,
       inBush: false,
@@ -428,6 +430,7 @@ class Match {
     target.hitFlash = 0.15;
     target.reveal = REVEAL_TIME;
     const owner = this.fighters.get(ownerId);
+    if (owner && owner.team !== target.team) target.attackers.add(ownerId);
     if (owner && !fromSuper && owner.charge < SUPER_HITS) {
       owner.charge += 1;
       if (owner.charge === SUPER_HITS) this.onEvent({ type: 'superReady', id: ownerId });
@@ -442,7 +445,13 @@ class Match {
     if (killer) {
       killer.kills += 1;
       this.score[killer.team] += 1;
+      // 어시스트: 한 대라도 때린 사람 중 킬한 사람과 같은 팀인 사람
+      for (const aid of target.attackers) {
+        const a = this.fighters.get(aid);
+        if (aid !== ownerId && a && a.team === killer.team) a.assists += 1;
+      }
     }
+    target.attackers.clear();
     const entry = {
       killer: killer ? killer.name : '?',
       killerTeam: killer ? killer.team : null,
@@ -462,8 +471,9 @@ class Match {
       team: f.team,
       kills: f.kills,
       deaths: f.deaths,
+      assists: f.assists,
     }));
-    list.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    list.sort((a, b) => b.kills - a.kills || b.assists - a.assists || a.deaths - b.deaths);
     let winner = 'draw';
     if (this.score.red > this.score.blue) winner = 'red';
     else if (this.score.blue > this.score.red) winner = 'blue';
@@ -495,6 +505,9 @@ class Match {
         hid: f.hidden,
         ib: f.inBush,
         sr: f.charge >= SUPER_HITS,
+        k: f.kills,
+        d: f.deaths,
+        as: f.assists,
         c: f.connected,
       })),
       bullets: this.bullets.map((b) => [b.id, r(b.x), r(b.y), b.team === 'red' ? 0 : 1]),
@@ -519,6 +532,7 @@ class Match {
       respawn: f.alive ? 0 : Math.max(0, f.respawn),
       kills: f.kills,
       deaths: f.deaths,
+      assists: f.assists,
       charge: f.charge,
       superMax: SUPER_HITS,
       hidden: f.hidden,
