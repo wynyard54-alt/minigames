@@ -195,12 +195,10 @@
 
   // ---------- 조이스틱 ----------
   const STICK_R = 60;
-  const DEAD = 0.18; // 이 비율 안쪽은 '조준 안 함'(톡 치기)으로 본다
-  const input = { mx: 0, my: 0, ax: 0, ay: 0, aiming: false };
-  const sticks = {
-    move: { el: $('stickL'), id: null, ox: 0, oy: 0 },
-    aim: { el: $('stickR'), id: null, ox: 0, oy: 0, maxed: false, t0: 0 },
-  };
+  const input = { mx: 0, my: 0, firing: false };
+  const stick = { el: $('stickL'), id: null, ox: 0, oy: 0 };
+  const firePointers = new Set();
+  const keys = new Set();
 
   function placeStick(s, x, y) {
     s.el.style.left = x + 'px';
@@ -221,74 +219,61 @@
     return { x: dx / STICK_R, y: dy / STICK_R, m: Math.min(1, d / STICK_R) };
   }
 
-  function onDown(e, which) {
-    const s = sticks[which];
-    if (s.id !== null) return;
+  const moveZone = $('moveZone');
+  moveZone.addEventListener('pointerdown', (e) => {
+    if (stick.id !== null) return;
     e.preventDefault();
-    s.id = e.pointerId;
-    s.ox = e.clientX;
-    s.oy = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    placeStick(s, e.clientX, e.clientY);
-    if (which === 'aim') {
-      s.maxed = false;
-      s.t0 = performance.now();
-    }
-  }
-
-  function onMove(e, which) {
-    const s = sticks[which];
-    if (s.id !== e.pointerId) return;
+    stick.id = e.pointerId;
+    stick.ox = e.clientX;
+    stick.oy = e.clientY;
+    moveZone.setPointerCapture(e.pointerId);
+    placeStick(stick, e.clientX, e.clientY);
+  });
+  moveZone.addEventListener('pointermove', (e) => {
+    if (stick.id !== e.pointerId) return;
     e.preventDefault();
-    const v = stickVec(s, e.clientX, e.clientY);
-    if (which === 'move') {
-      input.mx = v.m > 0.1 ? v.x : 0;
-      input.my = v.m > 0.1 ? v.y : 0;
-    } else {
-      if (v.m > DEAD) {
-        s.maxed = true;
-        input.ax = v.x;
-        input.ay = v.y;
-        input.aiming = true;
-      } else {
-        input.aiming = false; // 가운데로 되돌리면 발사 취소
-      }
-    }
+    const v = stickVec(stick, e.clientX, e.clientY);
+    input.mx = v.m > 0.1 ? v.x : 0;
+    input.my = v.m > 0.1 ? v.y : 0;
     sendInput();
-  }
-
-  function onUp(e, which) {
-    const s = sticks[which];
-    if (s.id !== e.pointerId) return;
-    s.id = null;
-    s.el.classList.add('hidden');
-    if (which === 'move') {
-      input.mx = input.my = 0;
-    } else {
-      if (input.aiming) socket.emit('fire', { ax: input.ax, ay: input.ay });
-      else if (!s.maxed && performance.now() - s.t0 < 400) socket.emit('fire', { auto: true });
-      input.aiming = false;
-    }
+  });
+  function moveEnd(e) {
+    if (stick.id !== e.pointerId) return;
+    stick.id = null;
+    stick.el.classList.add('hidden');
+    input.mx = input.my = 0;
     sendInput(true);
   }
+  moveZone.addEventListener('pointerup', moveEnd);
+  moveZone.addEventListener('pointercancel', moveEnd);
 
-  for (const [zone, which] of [
-    ['moveZone', 'move'],
-    ['aimZone', 'aim'],
-  ]) {
-    const el = $(zone);
-    el.addEventListener('pointerdown', (e) => onDown(e, which));
-    el.addEventListener('pointermove', (e) => onMove(e, which));
-    el.addEventListener('pointerup', (e) => onUp(e, which));
-    el.addEventListener('pointercancel', (e) => onUp(e, which));
+  // 발사: 오른쪽 아무 데나 누르고 있으면 연사 (서버가 탄약/쿨타임을 관리)
+  const fireZone = $('fireZone');
+  function setFiring() {
+    input.firing = firePointers.size > 0 || keys.has(' ');
+    $('fireBtn').classList.toggle('on', input.firing);
+    sendInput(true);
+  }
+  fireZone.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    fireZone.setPointerCapture(e.pointerId);
+    firePointers.add(e.pointerId);
+    setFiring();
+  });
+  for (const ev of ['pointerup', 'pointercancel']) {
+    fireZone.addEventListener(ev, (e) => {
+      firePointers.delete(e.pointerId);
+      setFiring();
+    });
   }
 
   function resetSticks() {
-    for (const s of Object.values(sticks)) {
-      s.id = null;
-      s.el.classList.add('hidden');
-    }
-    Object.assign(input, { mx: 0, my: 0, ax: 0, ay: 0, aiming: false });
+    stick.id = null;
+    stick.el.classList.add('hidden');
+    firePointers.clear();
+    keys.clear();
+    Object.assign(input, { mx: 0, my: 0, firing: false });
+    $('fireBtn').classList.remove('on');
   }
 
   let lastSent = '';
@@ -310,10 +295,9 @@
     }
   }, 250);
 
-  // PC에서 시험해 볼 때: WASD/방향키 이동, 스페이스 자동조준 발사
-  const keys = new Set();
+  // PC에서 시험해 볼 때: WASD/방향키 이동, 스페이스 발사(누르고 있으면 연사)
   function keyInput() {
-    if (sticks.move.id !== null) return;
+    if (stick.id !== null) return;
     const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     const l = Math.hypot(x, y) || 1;
@@ -322,19 +306,19 @@
     sendInput(true);
   }
   addEventListener('keydown', (e) => {
-    if ($('pad').classList.contains('hidden')) return;
+    if ($('pad').classList.contains('hidden') || e.repeat) return;
     const k = e.key.toLowerCase();
-    if (k === ' ') {
-      e.preventDefault();
-      if (!e.repeat) socket.emit('fire', { auto: true });
-      return;
-    }
+    if (k === ' ') e.preventDefault();
     keys.add(k);
-    keyInput();
+    if (k === ' ') setFiring();
+    else keyInput();
   });
   addEventListener('keyup', (e) => {
-    keys.delete(e.key.toLowerCase());
-    if (!$('pad').classList.contains('hidden')) keyInput();
+    const k = e.key.toLowerCase();
+    keys.delete(k);
+    if ($('pad').classList.contains('hidden')) return;
+    if (k === ' ') setFiring();
+    else keyInput();
   });
 
   // 게임 중 화면 꺼짐 방지 (지원하는 브라우저만)

@@ -74,8 +74,7 @@ const ack = (s, ev, data) => new Promise((r) => s.emit(ev, data, r));
       const dir = me.x < 800 ? 1 : -1;
       // 윗쪽 통로(y=80)는 벽이 없으니 그쪽으로 돌아서 간다
       const up = Math.abs(me.y - 80) > 20;
-      p.s.emit('input', { mx: up ? 0 : dir, my: up ? Math.sign(80 - me.y) : 0 });
-      p.s.emit('fire', { auto: true });
+      p.s.emit('input', { mx: up ? 0 : dir, my: up ? Math.sign(80 - me.y) : 0, firing: !up });
     }
   }, 100);
   await wait(6000);

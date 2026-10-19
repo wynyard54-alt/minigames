@@ -18,6 +18,7 @@ const REGEN_RATE = 18; // hp/s
 const MATCH_TIME = 120;
 const COUNTDOWN = 3;
 const TEAMS = ['red', 'blue'];
+const ASSIST_ANGLE = 0.35; // 바라보는 방향 ±20° 안의 적은 자동으로 맞춰 준다
 
 // 왼쪽 절반의 벽만 정의하고 점대칭으로 오른쪽을 만든다 → 양 팀이 공평한 맵
 const HALF_WALLS = [
@@ -129,7 +130,7 @@ class Match {
       sinceHit: REGEN_DELAY,
       faceX: p.team === 'red' ? 1 : -1,
       faceY: 0,
-      input: { mx: 0, my: 0, ax: 0, ay: 0, aiming: false },
+      input: { mx: 0, my: 0, ax: 0, ay: 0, aiming: false, firing: false },
       kills: 0,
       deaths: 0,
       connected: true,
@@ -147,7 +148,7 @@ class Match {
     const f = this.fighters.get(id);
     if (!f) return;
     f.connected = connected;
-    if (!connected) f.input = { mx: 0, my: 0, ax: 0, ay: 0, aiming: false };
+    if (!connected) f.input = { mx: 0, my: 0, ax: 0, ay: 0, aiming: false, firing: false };
   }
 
   placeAtSpawn(f) {
@@ -187,7 +188,7 @@ class Match {
       ax /= al;
       ay /= al;
     }
-    f.input = { mx, my, ax, ay, aiming: !!input.aiming && al > 0 };
+    f.input = { mx, my, ax, ay, aiming: !!input.aiming && al > 0, firing: !!input.firing };
   }
 
   fire(id, req) {
@@ -196,7 +197,12 @@ class Match {
     if (!f || !f.alive || f.ammo < 1 || f.cooldown > 0) return;
     let dx;
     let dy;
-    if (req && req.auto) {
+    if (req && req.facing) {
+      // 발사 버튼: 바라보는 방향으로 쏘되, 앞쪽 좁은 각도 안의 적은 살짝 보정
+      const target = this.assistTarget(f);
+      dx = target ? target.x - f.x : f.faceX;
+      dy = target ? target.y - f.y : f.faceY;
+    } else if (req && req.auto) {
       const target = this.nearestEnemy(f);
       if (target) {
         dx = target.x - f.x;
@@ -229,6 +235,25 @@ class Match {
       vy: dy * BULLET_SPEED,
       dist: 0,
     });
+  }
+
+  assistTarget(f) {
+    let best = null;
+    let bestScore = Infinity;
+    for (const o of this.fighters.values()) {
+      if (o.team === f.team || !o.alive || !o.connected) continue;
+      const d = Math.hypot(o.x - f.x, o.y - f.y);
+      if (d > BULLET_RANGE || d === 0) continue;
+      const cos = ((o.x - f.x) * f.faceX + (o.y - f.y) * f.faceY) / d;
+      const ang = Math.acos(clamp(cos, -1, 1));
+      if (ang > ASSIST_ANGLE) continue;
+      const score = ang * 400 + d; // 정면에 가깝고 가까운 적 우선
+      if (score < bestScore && hasLineOfSight(f.x, f.y, o.x, o.y)) {
+        bestScore = score;
+        best = o;
+      }
+    }
+    return best;
   }
 
   nearestEnemy(f) {
@@ -305,6 +330,7 @@ class Match {
         f.faceX = mx / l;
         f.faceY = my / l;
       }
+      if (f.input.firing && f.ammo >= 1 && f.cooldown <= 0) this.fire(f.id, { facing: true });
       f.x = clamp(f.x, PLAYER_R, W - PLAYER_R);
       f.y = clamp(f.y, PLAYER_R, H - PLAYER_R);
       for (const w of WALLS) circleRectPush(f, PLAYER_R, w);
