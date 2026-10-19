@@ -33,12 +33,32 @@ app.get('/api/qr', async (req, res) => {
 });
 
 // 선생님이 노트북에서 localhost로 열었을 때, QR에 넣을 같은 와이파이 주소를 알려준다
-// 와이파이 주소를 먼저, VPN·가상 장치 주소는 뒤로 (윈도우 노트북에는 이런 장치가 많다)
+// 네트워크 장치 목록. 안드로이드(Termux)에서는 os.networkInterfaces()가 막힐 수 있어 ifconfig로 대신 읽는다
+function interfaces() {
+  try {
+    return os.networkInterfaces();
+  } catch {
+    const out = {};
+    try {
+      const text = require('child_process').execSync('ifconfig 2>/dev/null', { encoding: 'utf8' });
+      let name = null;
+      for (const line of text.split('\n')) {
+        const head = line.match(/^(\S+?):?\s/);
+        if (head) name = head[1];
+        const m = line.match(/inet (?:addr:)?(\d+\.\d+\.\d+\.\d+)/);
+        if (name && m) (out[name] = out[name] || []).push({ family: 'IPv4', address: m[1], internal: m[1].startsWith('127.') });
+      }
+    } catch {}
+    return out;
+  }
+}
+
+// 와이파이·핫스팟 주소를 먼저, VPN·가상 장치·모바일 데이터 주소는 뒤로
 function lanAddresses() {
-  const virtual = /vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|tailscale|zerotier|vpn|tap|tun|utun|bridge/i;
-  const wifi = /wi-?fi|wlan|wireless|무선|en0|wl/i;
+  const virtual = /vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|tailscale|zerotier|vpn|tap|tun|utun|bridge|rmnet|ccmni|dummy|p2p/i;
+  const wifi = /wi-?fi|wlan|wireless|무선|en0|wl|ap\d|swlan/i;
   const list = [];
-  for (const [name, nis] of Object.entries(os.networkInterfaces())) {
+  for (const [name, nis] of Object.entries(interfaces())) {
     for (const ni of nis || []) {
       if (ni.family !== 'IPv4' || ni.internal || ni.address.startsWith('169.254.')) continue;
       let score = 0;
@@ -454,7 +474,14 @@ setInterval(() => {
 // 실행 파일로 켰을 때 선생님 화면을 기본 브라우저로 연다
 function openBrowser(url) {
   const { exec } = require('child_process');
-  const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+  const cmd =
+    process.platform === 'win32'
+      ? `start "" "${url}"`
+      : process.platform === 'darwin'
+        ? `open "${url}"`
+        : process.platform === 'android'
+          ? `termux-open-url "${url}"` // 갤럭시(Termux)
+          : `xdg-open "${url}"`;
   exec(cmd, () => {});
 }
 
