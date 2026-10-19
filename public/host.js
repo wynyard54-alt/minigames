@@ -151,6 +151,7 @@
   const bulletDisp = new Map();
   let particles = [];
   let floaters = [];
+  let waves = [];
 
   socket.on('game:start', (data) => {
     world = data.world;
@@ -159,6 +160,7 @@
     bulletDisp.clear();
     particles = [];
     floaters = [];
+    waves = [];
     $('feed').innerHTML = '';
     show('game');
     resize();
@@ -175,6 +177,10 @@
 
   socket.on('fx', (ev) => {
     if (ev.type === 'hit') burst(ev.x, ev.y, TEAM_COLOR[ev.team], 6, 120);
+    if (ev.type === 'super') {
+      waves.push({ x: ev.x, y: ev.y, r: ev.r, color: TEAM_COLOR[ev.team], life: 0.5 });
+      burst(ev.x, ev.y, '#c58cff', 30, 380);
+    }
     if (ev.type === 'kill') {
       burst(ev.x, ev.y, '#ffd84d', 22, 260);
       floaters.push({ x: ev.x, y: ev.y, text: 'KO!', life: 1 });
@@ -224,6 +230,24 @@
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
+  }
+
+  // 풀숲: 둥근 잎 덩어리를 겹쳐서 그린다 (위치마다 모양이 고정되도록 좌표로 무늬 결정)
+  function drawBush(b) {
+    ctx.fillStyle = '#1f6b3a';
+    roundRect(b.x, b.y, b.w, b.h, 18);
+    ctx.fill();
+    const step = 34;
+    for (let y = b.y + 14; y < b.y + b.h; y += step * 0.8) {
+      for (let x = b.x + 14; x < b.x + b.w; x += step) {
+        const k = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        const jitter = (k - Math.floor(k)) * 8;
+        ctx.fillStyle = (Math.floor(x + y) / step) % 2 < 1 ? '#2e8b4e' : '#38a35c';
+        ctx.beginPath();
+        ctx.arc(x + jitter, y, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   let lastFrame = performance.now();
@@ -308,6 +332,9 @@
       ctx.fill();
     }
 
+    // 부시
+    for (const b of world.bushes) drawBush(b);
+
     // 플레이어 위치 보간
     const k = Math.min(1, dt * 18);
     const seen = new Set();
@@ -361,9 +388,18 @@
     // 플레이어
     const R = world.PLAYER_R;
     for (const p of snap.players) {
-      if (!p.al) continue;
+      if (!p.al || p.hid) continue; // 부시에 숨은 플레이어는 큰 화면에 그리지 않음
       const d = disp.get(p.id);
-      ctx.globalAlpha = p.c ? 1 : 0.35;
+      ctx.globalAlpha = !p.c ? 0.35 : p.ib ? 0.75 : 1;
+      // 필살기 준비 완료: 보라색으로 빛나는 테두리
+      if (p.sr) {
+        const pulse = 0.5 + 0.5 * Math.sin(now / 150);
+        ctx.strokeStyle = `rgba(197,140,255,${0.5 + pulse * 0.5})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, R + 10 + pulse * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       // 그림자
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath();
@@ -435,6 +471,21 @@
     }
 
     // 효과
+    waves = waves.filter((w) => (w.life -= dt) > 0);
+    for (const w of waves) {
+      const t = 1 - w.life / 0.5;
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = w.color;
+      ctx.globalAlpha = (1 - t) * 0.25;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, w.r * (0.3 + 0.7 * t), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = '#c58cff';
+      ctx.lineWidth = 10;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
     particles = particles.filter((q) => (q.life -= dt) > 0);
     for (const q of particles) {
       q.x += q.vx * dt;

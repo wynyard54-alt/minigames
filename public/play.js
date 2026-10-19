@@ -154,6 +154,12 @@
       pips[i].style.setProperty('--fill', fill);
     }
     $('kd').textContent = `${s.kills}킬 ${s.deaths}데스`;
+    superReady = s.alive && s.charge >= s.superMax;
+    $('superBtn').classList.toggle('ready', superReady);
+    $('superBtn').style.setProperty('--p', s.charge / s.superMax);
+    $('superTxt').textContent = superReady ? '준비 완료!' : `${s.charge}/${s.superMax}`;
+    $('bushBadge').classList.toggle('hidden', !(s.alive && s.inBush));
+    $('bushBadge').textContent = s.hidden ? '🌿 부시에 숨는 중' : '🌿 부시 안 (지금은 보여요)';
     $('deadOverlay').classList.toggle('hidden', s.alive);
     $('respawnTxt').textContent = Math.ceil(s.respawn) + '초 후 부활';
     $('padCountdown').classList.toggle('hidden', s.phase !== 'countdown');
@@ -174,6 +180,9 @@
       flash('flash-hit');
     } else if (ev.type === 'dead') {
       buzz([120, 60, 200]);
+    } else if (ev.type === 'superReady') {
+      buzz([40, 40, 40, 40, 80]);
+      flash('flash-kill');
     } else if (ev.type === 'kill') {
       buzz([30, 40, 30]);
       flash('flash-kill');
@@ -255,6 +264,7 @@
     sendInput(true);
   }
   fireZone.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('#superBtn')) return;
     e.preventDefault();
     fireZone.setPointerCapture(e.pointerId);
     firePointers.add(e.pointerId);
@@ -266,6 +276,19 @@
       setFiring();
     });
   }
+
+  // 필살기
+  let superReady = false;
+  function useSuper() {
+    if (!superReady) return;
+    socket.emit('super');
+    buzz([60, 30, 120]);
+  }
+  $('superBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    useSuper();
+  });
 
   function resetSticks() {
     stick.id = null;
@@ -309,6 +332,7 @@
     if ($('pad').classList.contains('hidden') || e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === ' ') e.preventDefault();
+    if (k === 'e' || k === 'shift') return useSuper();
     keys.add(k);
     if (k === ' ') setFiring();
     else keyInput();

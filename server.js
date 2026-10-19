@@ -114,8 +114,10 @@ function onMatchEvent(room, ev) {
     sendToPlayer(room, ev.killer, 'ev', { type: 'kill' });
     sendToPlayer(room, ev.victim, 'ev', { type: 'dead' });
     if (room.hostSocket) io.to(room.hostSocket).emit('fx', ev);
-  } else if (ev.type === 'hit') {
+  } else if (ev.type === 'hit' || ev.type === 'super') {
     if (room.hostSocket) io.to(room.hostSocket).emit('fx', ev);
+  } else if (ev.type === 'superReady') {
+    sendToPlayer(room, ev.id, 'ev', { type: 'superReady' });
   } else if (ev.type === 'over') {
     room.lastResult = ev.result;
     room.state = 'result';
@@ -289,6 +291,11 @@ io.on('connection', (socket) => {
   socket.on('fire', (req) => {
     const { room, player } = findPlayerBySocket(socket);
     if (player && room.match) room.match.fire(player.id, req);
+  });
+
+  socket.on('super', () => {
+    const { room, player } = findPlayerBySocket(socket);
+    if (player && room.match) room.match.useSuper(player.id);
   });
 
   socket.on('disconnect', () => {

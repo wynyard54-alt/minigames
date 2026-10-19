@@ -19,6 +19,11 @@ const MATCH_TIME = 120;
 const COUNTDOWN = 3;
 const TEAMS = ['red', 'blue'];
 const ASSIST_ANGLE = 0.35; // 바라보는 방향 ±20° 안의 적은 자동으로 맞춰 준다
+const SUPER_HITS = 5; // 총알을 이만큼 맞히면 필살기 충전
+const SUPER_RADIUS = 210;
+const SUPER_DMG = 45;
+const REVEAL_RANGE = 130; // 부시 안에 있어도 적이 이만큼 가까우면 보인다
+const REVEAL_TIME = 1; // 쏘거나 맞으면 이 시간(초) 동안 부시 밖으로 드러난다
 
 // 왼쪽 절반의 벽만 정의하고 점대칭으로 오른쪽을 만든다 → 양 팀이 공평한 맵
 const HALF_WALLS = [
@@ -33,6 +38,25 @@ for (const w of HALF_WALLS) {
   WALLS.push(w);
   const m = { x: W - w.x - w.w, y: H - w.y - w.h, w: w.w, h: w.h };
   if (m.x !== w.x || m.y !== w.y) WALLS.push(m);
+}
+
+// 부시(풀숲): 들어가면 큰 화면에서 사라진다. 벽과 마찬가지로 점대칭
+const HALF_BUSHES = [
+  { x: 420, y: 230, w: 120, h: 90 },
+  { x: 240, y: 700, w: 160, h: 80 },
+  { x: 640, y: 560, w: 110, h: 110 },
+  { x: 700, y: 0, w: 200, h: 70 },
+];
+const BUSHES = [];
+for (const b of HALF_BUSHES) {
+  BUSHES.push(b, { x: W - b.x - b.w, y: H - b.y - b.h, w: b.w, h: b.h });
+}
+
+function inBush(x, y) {
+  for (const b of BUSHES) {
+    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return true;
+  }
+  return false;
 }
 
 const SPAWNS = {
@@ -133,6 +157,10 @@ class Match {
       input: { mx: 0, my: 0, ax: 0, ay: 0, aiming: false, firing: false },
       kills: 0,
       deaths: 0,
+      charge: 0,
+      reveal: 0,
+      inBush: false,
+      hidden: false,
       connected: true,
       hitFlash: 0,
     };
@@ -225,6 +253,7 @@ class Match {
     f.cooldown = FIRE_COOLDOWN;
     f.sinceHit = Math.min(f.sinceHit, REGEN_DELAY - 1); // 쏘는 중에는 회복이 늦어진다
     f.shield = 0; // 공격하면 스폰 보호막 해제
+    f.reveal = REVEAL_TIME;
     this.bullets.push({
       id: ++this.bulletSeq,
       owner: f.id,
@@ -237,11 +266,25 @@ class Match {
     });
   }
 
+  useSuper(id) {
+    if (this.phase !== 'playing') return;
+    const f = this.fighters.get(id);
+    if (!f || !f.alive || f.charge < SUPER_HITS) return;
+    f.charge = 0;
+    f.shield = 0;
+    f.reveal = REVEAL_TIME;
+    this.onEvent({ type: 'super', id, x: f.x, y: f.y, team: f.team, r: SUPER_RADIUS });
+    for (const o of [...this.fighters.values()]) {
+      if (o.team === f.team || !o.alive || !o.connected) continue;
+      if (Math.hypot(o.x - f.x, o.y - f.y) <= SUPER_RADIUS + PLAYER_R) this.damage(o, id, SUPER_DMG, true);
+    }
+  }
+
   assistTarget(f) {
     let best = null;
     let bestScore = Infinity;
     for (const o of this.fighters.values()) {
-      if (o.team === f.team || !o.alive || !o.connected) continue;
+      if (o.team === f.team || !o.alive || !o.connected || o.hidden) continue;
       const d = Math.hypot(o.x - f.x, o.y - f.y);
       if (d > BULLET_RANGE || d === 0) continue;
       const cos = ((o.x - f.x) * f.faceX + (o.y - f.y) * f.faceY) / d;
@@ -260,7 +303,7 @@ class Match {
     let best = null;
     let bestD = BULLET_RANGE + 60;
     for (const o of this.fighters.values()) {
-      if (o.team === f.team || !o.alive || !o.connected) continue;
+      if (o.team === f.team || !o.alive || !o.connected || o.hidden) continue;
       const d = Math.hypot(o.x - f.x, o.y - f.y);
       if (d < bestD && hasLineOfSight(f.x, f.y, o.x, o.y)) {
         bestD = d;
@@ -306,6 +349,7 @@ class Match {
         continue;
       }
       if (f.shield > 0) f.shield -= dt;
+      if (f.reveal > 0) f.reveal -= dt;
       if (f.cooldown > 0) f.cooldown -= dt;
       if (f.ammo < AMMO_MAX) {
         f.reload += dt;
@@ -349,7 +393,7 @@ class Match {
         }
       }
       if (hit) {
-        this.damage(hit, b.owner);
+        this.damage(hit, b.owner, BULLET_DMG, false);
         this.onEvent({ type: 'hit', x: hit.x, y: hit.y, team: b.team });
         continue;
       }
@@ -360,20 +404,41 @@ class Match {
       keep.push(b);
     }
     this.bullets = keep;
+    this.updateHidden();
   }
 
-  damage(target, ownerId) {
+  updateHidden() {
+    const list = [...this.fighters.values()];
+    for (const f of list) {
+      f.inBush = f.alive && inBush(f.x, f.y);
+      if (!f.inBush || f.reveal > 0) {
+        f.hidden = false;
+        continue;
+      }
+      f.hidden = !list.some(
+        (o) => o.team !== f.team && o.alive && o.connected && Math.hypot(o.x - f.x, o.y - f.y) < REVEAL_RANGE
+      );
+    }
+  }
+
+  damage(target, ownerId, amount, fromSuper) {
     if (target.shield > 0) return;
-    target.hp -= BULLET_DMG;
+    target.hp -= amount;
     target.sinceHit = 0;
     target.hitFlash = 0.15;
+    target.reveal = REVEAL_TIME;
+    const owner = this.fighters.get(ownerId);
+    if (owner && !fromSuper && owner.charge < SUPER_HITS) {
+      owner.charge += 1;
+      if (owner.charge === SUPER_HITS) this.onEvent({ type: 'superReady', id: ownerId });
+    }
     this.onEvent({ type: 'damaged', id: target.id });
     if (target.hp > 0) return;
     target.hp = 0;
     target.alive = false;
     target.respawn = RESPAWN_TIME;
     target.deaths += 1;
-    const killer = this.fighters.get(ownerId);
+    const killer = owner;
     if (killer) {
       killer.kills += 1;
       this.score[killer.team] += 1;
@@ -427,6 +492,9 @@ class Match {
         fy: Math.round(f.faceY * 100) / 100,
         aim: f.input.aiming,
         hf: f.hitFlash > 0,
+        hid: f.hidden,
+        ib: f.inBush,
+        sr: f.charge >= SUPER_HITS,
         c: f.connected,
       })),
       bullets: this.bullets.map((b) => [b.id, r(b.x), r(b.y), b.team === 'red' ? 0 : 1]),
@@ -451,6 +519,10 @@ class Match {
       respawn: f.alive ? 0 : Math.max(0, f.respawn),
       kills: f.kills,
       deaths: f.deaths,
+      charge: f.charge,
+      superMax: SUPER_HITS,
+      hidden: f.hidden,
+      inBush: f.inBush,
     };
   }
 }
@@ -458,5 +530,5 @@ class Match {
 module.exports = {
   Match,
   TEAMS,
-  WORLD: { W, H, PLAYER_R, AMMO_MAX, MAX_HP, BULLET_RANGE, walls: WALLS },
+  WORLD: { W, H, PLAYER_R, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
 };

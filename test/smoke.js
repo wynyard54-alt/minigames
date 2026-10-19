@@ -7,7 +7,59 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const once = (s, ev) => new Promise((r) => s.once(ev, r));
 const ack = (s, ev, data) => new Promise((r) => s.emit(ev, data, r));
 
+function engineTests() {
+  const { Match, WORLD } = require('../game');
+  const events = [];
+  const m = new Match(
+    [
+      { id: 'a', name: 'A', team: 'red' },
+      { id: 'b', name: 'B', team: 'blue' },
+      { id: 'c', name: 'C', team: 'blue' },
+    ],
+    (e) => events.push(e)
+  );
+  m.step(3.1); // 카운트다운 끝
+  assert.equal(m.phase, 'playing');
+  const [a, b, c] = ['a', 'b', 'c'].map((id) => m.fighters.get(id));
+  for (const f of [a, b, c]) f.shield = 0;
+
+  // 필살기: 5발 맞히기 전에는 안 나가고, 충전되면 반경 안의 적만 맞는다
+  Object.assign(a, { x: 800, y: 250 });
+  Object.assign(b, { x: 900, y: 250 });
+  Object.assign(c, { x: 800, y: 700 });
+  m.useSuper('a');
+  assert.equal(b.hp, 100, 'super must need charge');
+  for (let i = 0; i < 5; i++) m.damage(c, 'a', 1, false);
+  assert.equal(a.charge, WORLD.SUPER_HITS);
+  assert.ok(events.some((e) => e.type === 'superReady'));
+  m.useSuper('a');
+  assert.equal(a.charge, 0);
+  assert.ok(b.hp < 100, 'enemy in radius takes super damage');
+  assert.equal(c.hp, 95, 'enemy out of radius is untouched');
+
+  // 부시: 안에 들어가면 숨고, 적이 가까이 오거나 쏘면 드러난다
+  const bush = WORLD.bushes[0];
+  Object.assign(b, { x: bush.x + bush.w / 2, y: bush.y + bush.h / 2, reveal: 0 });
+  Object.assign(a, { x: 1500, y: 450 });
+  m.updateHidden();
+  assert.ok(b.inBush && b.hidden, 'player in bush is hidden');
+  assert.equal(m.snapshot().players.find((p) => p.id === 'b').hid, true);
+  a.x = b.x + 60;
+  a.y = b.y;
+  m.updateHidden();
+  assert.equal(b.hidden, false, 'nearby enemy reveals bush player');
+  a.x = 1500;
+  a.y = 450;
+  b.ammo = 3;
+  b.cooldown = 0;
+  m.fire('b', { facing: true });
+  m.updateHidden();
+  assert.equal(b.hidden, false, 'shooting reveals bush player');
+  console.log('engine tests OK');
+}
+
 (async () => {
+  engineTests();
   await new Promise((r) => server.listen(0, r));
   const url = `http://localhost:${server.address().port}`;
   const connect = () => io(url, { transports: ['websocket'], forceNew: true });

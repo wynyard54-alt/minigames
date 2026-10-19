@@ -554,14 +554,20 @@ body[data-team='blue'] #pad {
 .zone + .zone {
   border-left: 2px dashed rgba(255, 255, 255, 0.08);
 }
+.fire-zone {
+  position: relative;
+}
 .fire-btn {
-  width: min(42vmin, 220px);
+  position: absolute;
+  right: calc(max(16px, env(safe-area-inset-right)) + 6vmin);
+  bottom: calc(env(safe-area-inset-bottom) + 8vmin);
+  width: min(28vmin, 140px);
   aspect-ratio: 1;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 900;
   color: #1b1b1b;
   background: radial-gradient(circle at 35% 30%, #ffe98a, var(--gold) 60%, #d9a90f);
@@ -572,6 +578,57 @@ body[data-team='blue'] #pad {
 .fire-btn.on {
   transform: translateY(6px) scale(0.96);
   box-shadow: 0 2px 0 #9c7a0c, 0 0 0 14px rgba(255, 216, 77, 0.3);
+}
+.super-btn {
+  position: absolute;
+  right: calc(max(16px, env(safe-area-inset-right)) + 6vmin + min(28vmin, 140px) + 4vmin);
+  bottom: calc(env(safe-area-inset-bottom) + 8vmin + min(14vmin, 70px));
+  width: min(20vmin, 100px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #fff;
+  font-family: inherit;
+  background:
+    radial-gradient(circle, #2b2148 58%, transparent 60%),
+    conic-gradient(#c58cff calc(var(--p, 0) * 360deg), rgba(255, 255, 255, 0.12) 0);
+  touch-action: none;
+  opacity: 0.85;
+}
+.super-btn b {
+  font-size: 15px;
+}
+.super-btn small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.super-btn.ready {
+  opacity: 1;
+  background: radial-gradient(circle at 35% 30%, #e6ccff, #a35cff 65%, #7a32d6);
+  box-shadow: 0 0 0 6px rgba(197, 140, 255, 0.35);
+  animation: pulse 0.8s infinite;
+}
+.super-btn.ready small {
+  color: #fff;
+}
+.bush-badge {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 14px);
+  transform: translateX(-50%);
+  background: rgba(31, 107, 58, 0.9);
+  color: #d8ffe3;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+  pointer-events: none;
+  white-space: nowrap;
 }
 .stick {
   position: fixed;
@@ -630,6 +687,10 @@ body[data-team='blue'] #pad {
 @media (orientation: portrait) {
   .rotate-hint {
     display: block;
+  }
+  .super-btn {
+    right: calc(max(16px, env(safe-area-inset-right)) + 6vmin + min(4vmin, 20px));
+    bottom: calc(env(safe-area-inset-bottom) + 8vmin + min(28vmin, 140px) + 6vmin);
   }
   .pad-top {
     flex-wrap: wrap;
