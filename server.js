@@ -288,9 +288,10 @@ io.on('connection', (socket) => {
     if (player && room.match) room.match.setInput(player.id, input);
   });
 
-  socket.on('fire', (req) => {
+  socket.on('fire', () => {
     const { room, player } = findPlayerBySocket(socket);
-    if (player && room.match) room.match.fire(player.id, req);
+    // 폰이 보낸 방향은 무시하고 항상 바라보는 방향으로 쏜다 (모두 같은 규칙)
+    if (player && room.match) room.match.fire(player.id, { facing: true });
   });
 
   socket.on('super', () => {
