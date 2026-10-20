@@ -28,13 +28,25 @@ window.Arena = (() => {
   };
   // 아이템: 이름, 그림, 지속 시간(초), 뽑힐 비율
   const ITEMS = {
-    power: { icon: '🔥', label: '강한 총알', time: 8, weight: 25 },
-    rapid: { icon: '⚡', label: '빠른 연사', time: 8, weight: 25 },
-    spread: { icon: '🔱', label: '3갈래 총알', time: 8, weight: 20 },
-    shield: { icon: '🛡', label: '보호막', time: 5, weight: 15 },
-    heal: { icon: '❤️', label: '하트 +1', time: 0, weight: 15 },
+    power: { icon: '🔥', label: '강한 총알', color: '#ff9850', time: 8, weight: 25 },
+    rapid: { icon: '⚡', label: '빠른 연사', color: '#69dfff', time: 8, weight: 25 },
+    spread: { icon: '🔱', label: '3갈래 총알', color: '#c6a0ff', time: 8, weight: 20 },
+    shield: { icon: '🛡', label: '보호막', color: '#8ce4ff', time: 5, weight: 15 },
+    heal: { icon: '❤️', label: '하트 +1', color: '#77efad', time: 0, weight: 15 },
   };
   const SPECIAL_R = 170;
+  const MAX_FX = 36;
+  const MAX_FLOATERS = 10;
+
+  // 필살기 연속 처치 때도 시각 효과 수를 제한한다. 큰 충격파는 우선 유지한다.
+  function effect(f) {
+    if (g.fx.length >= MAX_FX) {
+      const index = g.fx.findIndex(old => !old.wide);
+      if (index < 0) return;
+      g.fx.splice(index, 1);
+    }
+    g.fx.push(f);
+  }
 
   // 캐릭터 그림 (선생님 화면·배틀과 같은 그림)
   const art = new Image();
@@ -45,6 +57,28 @@ window.Arena = (() => {
     red: { right: [51, 28, 188, 218], left: [294, 27, 191, 219], up: [564, 25, 147, 221], down: [822, 26, 151, 220] },
     blue: { right: [51, 267, 188, 218], left: [294, 266, 191, 219], up: [564, 263, 147, 222], down: [822, 265, 151, 220] },
   };
+
+  // 적은 방향 없는 작은 그림 한 장씩 사용한다. 피격용 흰색 그림도 최초 로딩 때만 만든다.
+  const enemyArt = new Image();
+  const enemySprites = {};
+  enemyArt.onload = () => {
+    const boxes = { small: [18, 26, 88, 83], big: [136, 9, 112, 109], carrier: [276, 25, 89, 85] };
+    for (const [kind, rect] of Object.entries(boxes)) {
+      enemySprites[kind] = [false, true].map(flash => {
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 64;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(enemyArt, ...rect, 0, 0, 64, 64);
+        if (flash) {
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.fillStyle = 'rgba(255,255,255,0.8)';
+          ctx.fillRect(0, 0, 64, 64);
+        }
+        return cv;
+      });
+    }
+  };
+  enemyArt.src = '/assets/arena-enemies.webp';
 
   let g = null; // 지금 판의 상태
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -144,6 +178,8 @@ window.Arena = (() => {
       done: false,
       last: now,
       lastReport: 0,
+      lastHud: -Infinity,
+      buffMarkup: null,
     };
     $('aOverlay').classList.add('hidden');
     $('aStick').classList.add('hidden');
@@ -201,7 +237,7 @@ window.Arena = (() => {
     const angles = g.buffs.spread > 0 ? [a - 0.22, a, a + 0.22] : [a];
     const power = g.buffs.power > 0;
     for (const ang of angles) {
-      g.bullets.push({ x: p.x, y: p.y, vx: Math.cos(ang) * BULLET_SPEED, vy: Math.sin(ang) * BULLET_SPEED, r: power ? 10 : 7, dmg: power ? 2 : 1, life: BULLET_LIFE, power });
+      g.bullets.push({ x: p.x, y: p.y, vx: Math.cos(ang) * BULLET_SPEED, vy: Math.sin(ang) * BULLET_SPEED, r: power ? 10 : 7, dmg: power ? 2 : 1, life: BULLET_LIFE, power, rapid: g.buffs.rapid > 0, spread: g.buffs.spread > 0 });
     }
     sfx('shoot', 0.25);
   }
@@ -226,7 +262,8 @@ window.Arena = (() => {
     const def = ITEMS[it.type];
     if (it.type === 'heal') g.player.hp = Math.min(5, g.player.hp + 1);
     else g.buffs[it.type] = def.time;
-    float(it.x, it.y - 20, `${def.icon} ${def.label}!`, '#ffe35b');
+    float(it.x, it.y - 20, `${def.icon} ${def.label}!`, def.color);
+    effect({ x: g.player.x, y: g.player.y, r: 8, max: 42, life: 0.35, color: def.color });
     sfx('superReady', 0.7);
   }
 
@@ -237,8 +274,8 @@ window.Arena = (() => {
     const before = g.charge;
     g.charge = Math.min(100, g.charge + t.charge);
     if (before < 100 && g.charge >= 100) sfx('superReady');
-    g.fx.push({ x: e.x, y: e.y, r: 0, max: 30, life: 0.25, color: t.color });
-    float(e.x, e.y, '+' + t.score, '#fff');
+    effect({ x: e.x, y: e.y, r: 0, max: 24, life: 0.22, color: t.color, burst: true });
+    if (e.kind === 'carrier' || (g.enemies.length < 60 && g.kills % 3 === 0)) float(e.x, e.y, '+' + t.score, '#fff');
     if (e.kind === 'carrier') dropItem(e.x, e.y);
     sfx('kill', 0.35, 60);
   }
@@ -247,7 +284,7 @@ window.Arena = (() => {
     if (!g || g.done || !running() || g.charge < 100) return;
     g.charge = 0;
     const p = g.player;
-    g.fx.push({ x: p.x, y: p.y, r: 0, max: SPECIAL_R, life: 0.45, color: '#c58cff', wide: true });
+    effect({ x: p.x, y: p.y, r: 0, max: SPECIAL_R, life: 0.45, color: '#c58cff', wide: true });
     for (const e of g.enemies) {
       if (Math.hypot(e.x - p.x, e.y - p.y) < SPECIAL_R + e.r) {
         e.hp -= 5;
@@ -263,6 +300,7 @@ window.Arena = (() => {
   }
 
   function float(x, y, text, color) {
+    if (g.floaters.length >= MAX_FLOATERS) g.floaters.shift();
     g.floaters.push({ x, y, text, color, life: 0.9 });
   }
 
@@ -338,7 +376,7 @@ window.Arena = (() => {
       if (Math.hypot(e.x - p.x, e.y - p.y) < e.r + PLAYER_R - 3 && g.inv <= 0 && g.buffs.shield <= 0) {
         p.hp -= 1;
         g.inv = 1.2;
-        g.fx.push({ x: p.x, y: p.y, r: 0, max: 55, life: 0.25, color: '#ff6b6b' });
+        effect({ x: p.x, y: p.y, r: 0, max: 55, life: 0.25, color: '#ff6b6b' });
         if (navigator.vibrate) navigator.vibrate(60);
         sfx(p.hp > 0 ? 'hurt' : 'die');
       }
@@ -351,7 +389,8 @@ window.Arena = (() => {
       for (const e of g.enemies) {
         if (e.dead || Math.hypot(b.x - e.x, b.y - e.y) > b.r + e.r) continue;
         e.hp -= b.dmg;
-        e.flash = 0.08;
+        e.flash = 0.09;
+        if (e.hp > 0) effect({ x: b.x, y: b.y, r: 2, max: 12, life: 0.12, color: '#fff', hit: true });
         b.life = 0;
         sfx('hitEnemy', 0.5, 40);
         if (e.hp <= 0) {
@@ -408,6 +447,8 @@ window.Arena = (() => {
   }
 
   function hud(now) {
+    if (now - g.lastHud < 100) return; // 화면 표시는 초당 10번이면 충분하다
+    g.lastHud = now;
     $('aScore').textContent = '⭐ ' + g.score;
     $('aTime').textContent = '⏱ ' + Math.max(0, Math.ceil((g.endAt - now) / 1000));
     $('aHearts').textContent = '❤️'.repeat(Math.max(0, g.player.hp)) + '🖤'.repeat(Math.max(0, 5 - g.player.hp));
@@ -415,10 +456,17 @@ window.Arena = (() => {
     $('aCharge').textContent = Math.floor(g.charge) + '%';
     $('aSpecial').classList.toggle('ready', g.charge >= 100);
     $('aSpecial').style.setProperty('--p', g.charge / 100);
-    $('aBuffs').innerHTML = Object.entries(g.buffs)
+    const markup = Object.entries(g.buffs)
       .filter(([, t]) => t > 0)
-      .map(([k, t]) => `<span>${ITEMS[k].icon} ${Math.ceil(t)}</span>`)
-      .join('');
+      .map(([k, t]) => {
+        const def = ITEMS[k];
+        const remaining = Math.max(0, Math.min(1, t / def.time));
+        return `<span class="a-buff${t <= 2 ? ' expiring' : ''}" style="--buff-color:${def.color};--remaining:${remaining.toFixed(2)}" aria-label="${def.label} ${Math.ceil(t)}초 남음">${def.icon} ${def.label} <b>${Math.ceil(t)}초</b></span>`;
+      }).join('');
+    if (markup !== g.buffMarkup) {
+      $('aBuffs').innerHTML = markup;
+      g.buffMarkup = markup;
+    }
   }
 
   // ---------- 그리기 ----------
@@ -516,19 +564,23 @@ window.Arena = (() => {
     for (const e of g.enemies) {
       const t = ENEMY[e.kind];
       if (e.kind === 'carrier') {
-        const glow = 0.4 + 0.3 * Math.sin(now / 120);
+        const glow = 0.12 + 0.06 * Math.sin(now / 180);
         ctx.fillStyle = `rgba(255,216,77,${glow})`;
         ctx.beginPath();
         ctx.arc(e.x, e.y, e.r + 7, 0, Math.PI * 2);
         ctx.fill();
       }
       circle(ctx, e.x + 2, e.y + 4, e.r, 'rgba(0,0,0,0.35)');
-      circle(ctx, e.x, e.y, e.r, e.flash > 0 ? '#ffffff' : t.color);
-      circle(ctx, e.x - 5, e.y - 3, 3, '#fff');
-      circle(ctx, e.x + 5, e.y - 3, 3, '#fff');
-      circle(ctx, e.x - 5, e.y - 3, 1.5, '#23213a');
-      circle(ctx, e.x + 5, e.y - 3, 1.5, '#23213a');
-      if (e.kind === 'carrier') {
+      const picture = enemySprites[e.kind];
+      if (picture) ctx.drawImage(picture[e.flash > 0 ? 1 : 0], e.x - e.r, e.y - e.r, e.r * 2, e.r * 2);
+      else {
+        circle(ctx, e.x, e.y, e.r, e.flash > 0 ? '#ffffff' : t.color);
+        circle(ctx, e.x - 5, e.y - 3, 3, '#fff');
+        circle(ctx, e.x + 5, e.y - 3, 3, '#fff');
+        circle(ctx, e.x - 5, e.y - 3, 1.5, '#23213a');
+        circle(ctx, e.x + 5, e.y - 3, 1.5, '#23213a');
+      }
+      if (e.kind === 'carrier' && !picture) {
         ctx.font = '14px system-ui, sans-serif';
         ctx.fillStyle = '#fff';
         ctx.fillText('🎁', e.x, e.y - e.r - 8);
@@ -536,14 +588,23 @@ window.Arena = (() => {
       if (e.kind === 'big' && e.hp < ENEMY.big.hp) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(e.x - 16, e.y - e.r - 9, 32, 4);
-        ctx.fillStyle = '#ff5555';
-        ctx.fillRect(e.x - 16, e.y - e.r - 9, (32 * e.hp) / ENEMY.big.hp, 4);
+        ctx.fillStyle = '#d8bcff';
+        for (let i = 0; i < e.hp; i++) ctx.fillRect(e.x - 15 + i * 10, e.y - e.r - 9, 8, 4);
       }
     }
 
     // 총알
     for (const b of g.bullets) {
-      circle(ctx, b.x, b.y, b.r + 2, b.power ? '#ff5a1e' : '#f38b1e');
+      if (b.rapid) {
+        const length = 12 / BULLET_SPEED;
+        ctx.strokeStyle = ITEMS.rapid.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(b.x - b.vx * length, b.y - b.vy * length);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      circle(ctx, b.x, b.y, b.r + 2, b.power ? '#ff5a1e' : b.spread ? ITEMS.spread.color : '#f38b1e');
       circle(ctx, b.x, b.y, b.r - 1, '#ffe35b');
     }
 
@@ -556,10 +617,20 @@ window.Arena = (() => {
     for (const f of g.fx) {
       ctx.globalAlpha = Math.min(1, f.life * 3);
       ctx.strokeStyle = f.color || '#ffe97b';
-      ctx.lineWidth = f.wide ? 10 : 5;
+      ctx.lineWidth = f.wide ? 8 : f.hit ? 2 : 3;
       ctx.beginPath();
       ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       ctx.stroke();
+      if (f.burst) {
+        // 파편 세 개만 짧게 그린다. 입자 객체나 흐림 효과는 만들지 않는다.
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = i * Math.PI * 2 / 3;
+          ctx.moveTo(f.x + Math.cos(a) * f.r, f.y + Math.sin(a) * f.r);
+          ctx.lineTo(f.x + Math.cos(a) * (f.r + 5), f.y + Math.sin(a) * (f.r + 5));
+        }
+        ctx.stroke();
+      }
     }
     ctx.font = 'bold 18px system-ui, sans-serif';
     for (const f of g.floaters) {
@@ -617,7 +688,9 @@ window.Arena = (() => {
     ctx.ellipse(p.x, p.y + PLAYER_R * 0.8, PLAYER_R, PLAYER_R * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
     if (g.buffs.shield > 0) {
-      const pulse = 0.5 + 0.5 * Math.sin(now / 100);
+      const pulse = 0.5 + 0.5 * Math.sin(now / 160);
+      ctx.save();
+      if (g.buffs.shield < 2) ctx.globalAlpha *= 0.45 + pulse * 0.55;
       ctx.fillStyle = `rgba(120,200,255,${0.18 + pulse * 0.12})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, PLAYER_R + 14, 0, Math.PI * 2);
@@ -625,7 +698,19 @@ window.Arena = (() => {
       ctx.strokeStyle = 'rgba(160,220,255,0.9)';
       ctx.lineWidth = 3;
       ctx.stroke();
+      ctx.restore();
     }
+    // 공격 강화는 짧은 색 띠로만 표시하여 적이 많을 때도 시야를 가리지 않는다.
+    const active = ['power', 'rapid', 'spread'].filter(k => g.buffs[k] > 0);
+    active.forEach((k, i) => {
+      const def = ITEMS[k];
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const start = Math.PI * (0.1 + i * 0.28);
+      ctx.arc(p.x, p.y, PLAYER_R + 5, start, start + Math.PI * 0.22 * g.buffs[k] / def.time);
+      ctx.stroke();
+    });
     if (artReady) {
       const rect = FIGHTERS[g.team][p.dir];
       const height = PLAYER_R * 2.4;

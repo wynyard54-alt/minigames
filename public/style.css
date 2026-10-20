@@ -1250,3 +1250,17 @@ body.flash-kill #pad {
     grid-template-columns: 1fr;
   }
 }
+
+/* 아레나 아이템: 짧은 이름·남은 시간·줄어드는 막대로 효과를 표시한다. */
+.a-buffs { max-width: calc(100vw - 24px); width: max-content; flex-wrap: wrap; justify-content: center; }
+.a-buffs .a-buff {
+  position: relative; overflow: hidden; border: 1px solid var(--buff-color);
+  border-radius: 8px; padding: 4px 7px 7px; font-size: 11px;
+  color: var(--buff-color); background: rgba(13,18,32,0.9);
+}
+.a-buff::after {
+  content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px;
+  background: var(--buff-color); transform: scaleX(var(--remaining)); transform-origin: left;
+}
+.a-buff.expiring { border-style: dashed; }
+.a-buff b { color: #fff; }
