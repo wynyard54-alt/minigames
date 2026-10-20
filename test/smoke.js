@@ -1,5 +1,6 @@
 // 선생님 1명 + 학생 4명을 흉내 내서 방 만들기 → 입장 → 경기 → 결과까지 확인
 const assert = require('assert');
+require('./render-directions');
 const { io } = require('socket.io-client');
 const { server } = require('../server');
 

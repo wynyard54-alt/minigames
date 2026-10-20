@@ -8,11 +8,28 @@ window.GameRender = (() => {
   atlas.onload = () => { artReady = true; };
   atlas.src = '/assets/arena.webp';
   const SPRITES = {
-    red: [108, 26, 237, 218],
-    blue: [463, 28, 238, 220],
     wall: [115, 277, 202, 205],
     bush: [444, 268, 225, 222],
   };
+  const fighters = new Image();
+  let fightersReady = false;
+  fighters.onload = () => { fightersReady = true; };
+  fighters.src = '/assets/fighters.webp';
+  // 발밑을 맞추기 위한 원본 그림 위치: 오른쪽·왼쪽·뒤·앞. 좌표는 1024×512 기준.
+  const FIGHTERS = {
+    red: { right: [51, 28, 188, 218], left: [294, 27, 191, 219], up: [564, 25, 147, 221], down: [822, 26, 151, 220] },
+    blue: { right: [51, 267, 188, 218], left: [294, 266, 191, 219], up: [564, 263, 147, 222], down: [822, 265, 151, 220] },
+  };
+
+  // 실제 총알 방향은 그대로 두고 그림만 네 방향으로 고른다. 경계의 미세한 흔들림은 무시한다.
+  function facing(fx, fy, previous) {
+    if (Math.hypot(fx, fy) < 0.01) return previous || 'right';
+    const vertical = Math.atan2(Math.abs(fy), Math.abs(fx)) * 180 / Math.PI;
+    const nextVertical = fy < 0 ? 'up' : 'down';
+    if (vertical >= 65 || (previous === nextVertical && vertical >= 55)) return nextVertical;
+    return fx < 0 ? 'left' : 'right';
+  }
+
   const mapCache = new WeakMap();
 
   function sprite(ctx, name, x, y, w, h) {
@@ -146,7 +163,7 @@ window.GameRender = (() => {
     for (const b of world.bushes) drawBush(ctx, b);
   }
 
-  function drawPlayer(ctx, world, p, d, now, isMe) {
+  function drawPlayer(ctx, world, p, d, now, isMe, direction) {
     const R = world.PLAYER_R;
     // 필살기 준비 완료: 보라색으로 빛나는 테두리
     if (p.sr) {
@@ -161,7 +178,7 @@ window.GameRender = (() => {
     ctx.beginPath();
     ctx.ellipse(d.x, d.y + R * 0.8, R, R * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
-    if (artReady) {
+    if (fightersReady) {
       // 팀색 받침과 내 캐릭터의 노란 테두리를 남겨 작은 화면에서도 쉽게 구분한다.
       ctx.fillStyle = p.hf ? '#fff' : TEAM_COLOR[p.t];
       ctx.beginPath();
@@ -171,11 +188,14 @@ window.GameRender = (() => {
       ctx.lineWidth = isMe ? 5 : 2;
       ctx.stroke();
       ctx.save();
-      ctx.translate(d.x, d.y);
-      ctx.rotate(Math.atan2(p.fy, p.fx));
       if (p.hf) ctx.globalAlpha *= 0.45;
-      // 그림 속 총은 오른쪽을 향한다. 몸 중심을 기준으로 이동·발사 방향에 맞춰 돌린다.
-      sprite(ctx, p.t, -R * 0.95, -R * 1.45, R * 2.45, R * 2.25);
+      const rect = FIGHTERS[p.t][direction];
+      const height = R * 2.3;
+      const width = height * rect[2] / rect[3];
+      // 총이 튀어나온 옆모습도 몸 중심·발밑은 같은 위치에 고정한다. 몸 전체는 회전하지 않는다.
+      const anchor = direction === 'right' ? 0.4 : direction === 'left' ? 0.6 : 0.5;
+      ctx.drawImage(fighters, ...rect.map(v => v * 0.75),
+        d.x - width * anchor, d.y + R * 0.8 - height, width, height);
       ctx.restore();
     } else {
       ctx.fillStyle = p.hf ? '#ffffff' : TEAM_COLOR[p.t];
@@ -244,6 +264,7 @@ window.GameRender = (() => {
     let delay = minDelay; // 지금 기다리는 시간
     let targetDelay = minDelay;
     const lateness = []; // 최근 소식들이 가장 빠른 소식보다 얼마나 늦었는지(ms)
+    const directions = new Map(); // 화면마다 캐릭터의 마지막 방향을 기억한다
     const shown = new Map(); // 화면에 그린 위치 (갑자기 튀지 않도록 한 번 더 부드럽게)
     let lastUpdate = 0;
     let current = null; // 지금 그릴 상태
@@ -281,6 +302,7 @@ window.GameRender = (() => {
       buffer.length = 0;
       lateness.length = 0;
       shown.clear();
+      directions.clear();
       delay = targetDelay = minDelay;
       offset = null;
       current = null;
@@ -409,12 +431,17 @@ window.GameRender = (() => {
         ctx.fill();
       }
 
+      const present = new Set(snap.players.map(p => p.id));
+      for (const id of directions.keys()) if (!present.has(id)) directions.delete(id);
       for (const p of snap.players) {
         if (!p.al) continue;
         if (p.hid && p.t !== opts.myTeam) continue; // 숨은 적(큰 화면에선 숨은 모두)은 안 그림
         const d = at(p);
         ctx.globalAlpha = !p.c ? 0.35 : p.hid ? 0.45 : p.ib ? 0.75 : 1;
-        drawPlayer(ctx, world, d === p ? p : { ...p, fx: d.fx, fy: d.fy }, d, now, p.id === opts.meId);
+        const visual = d === p ? p : { ...p, fx: d.fx, fy: d.fy };
+        const direction = facing(visual.fx, visual.fy, directions.get(p.id));
+        directions.set(p.id, direction);
+        drawPlayer(ctx, world, visual, d, now, p.id === opts.meId, direction);
         ctx.globalAlpha = 1;
       }
 
