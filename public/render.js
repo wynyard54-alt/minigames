@@ -2,6 +2,50 @@
 window.GameRender = (() => {
   const TEAM_COLOR = { red: '#ff4d5e', blue: '#3d8bff' };
 
+  // 작은 이미지 한 장을 로컬 서버에서 한 번만 읽는다. 실패하면 기존 도형으로 그린다.
+  const atlas = new Image();
+  let artReady = false;
+  atlas.onload = () => { artReady = true; };
+  atlas.src = '/assets/arena.webp';
+  const SPRITES = {
+    red: [108, 26, 237, 218],
+    blue: [463, 28, 238, 220],
+    wall: [115, 277, 202, 205],
+    bush: [444, 268, 225, 222],
+  };
+  const mapCache = new WeakMap();
+
+  function sprite(ctx, name, x, y, w, h) {
+    ctx.drawImage(atlas, ...SPRITES[name], x, y, w, h);
+  }
+
+  // 길쭉한 장애물도 그림을 늘이지 않고 작은 타일을 반복한다. 실제 판정 영역 안에만 그린다.
+  function tiles(ctx, name, box, size) {
+    const cols = Math.ceil(box.w / size);
+    const rows = Math.ceil(box.h / size);
+    const w = box.w / cols;
+    const h = box.h / rows;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        sprite(ctx, name, box.x + col * w, box.y + row * h, w, h);
+      }
+    }
+  }
+
+  // 바닥·벽·부시는 변하지 않으므로 한 번 그린 뒤 재사용한다. 이미지 로딩 후 한 번 갱신한다.
+  function drawCachedMap(ctx, world) {
+    let cached = mapCache.get(world);
+    if (!cached || cached.artReady !== artReady) {
+      const canvas = document.createElement('canvas');
+      canvas.width = world.W;
+      canvas.height = world.H;
+      drawMap(canvas.getContext('2d'), world);
+      cached = { canvas, artReady };
+      mapCache.set(world, cached);
+    }
+    ctx.drawImage(cached.canvas, 0, 0);
+  }
+
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -14,6 +58,12 @@ window.GameRender = (() => {
 
   // 풀숲: 둥근 잎 덩어리를 겹쳐서 그린다 (위치마다 모양이 고정되도록 좌표로 무늬 결정)
   function drawBush(ctx, b) {
+    if (artReady) {
+      ctx.fillStyle = '#245a35';
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      tiles(ctx, 'bush', b, 80);
+      return;
+    }
     ctx.fillStyle = '#1f6b3a';
     roundRect(ctx, b.x, b.y, b.w, b.h, 18);
     ctx.fill();
@@ -76,6 +126,13 @@ window.GameRender = (() => {
     ctx.stroke();
     ctx.setLineDash([]);
     for (const w of world.walls) {
+      if (artReady) {
+        ctx.fillStyle = '#101827';
+        roundRect(ctx, w.x + 3, w.y + 5, w.w, w.h, 5);
+        ctx.fill();
+        tiles(ctx, 'wall', w, 64);
+        continue;
+      }
       ctx.fillStyle = '#0a0d18';
       roundRect(ctx, w.x + 4, w.y + 8, w.w, w.h, 8);
       ctx.fill();
@@ -104,25 +161,43 @@ window.GameRender = (() => {
     ctx.beginPath();
     ctx.ellipse(d.x, d.y + R * 0.8, R, R * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = p.hf ? '#ffffff' : TEAM_COLOR[p.t];
-    ctx.beginPath();
-    ctx.arc(d.x, d.y, R, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = isMe ? 5 : 4;
-    ctx.strokeStyle = isMe ? '#ffd84d' : 'rgba(0,0,0,0.35)';
-    ctx.stroke();
-    // 총구 방향과 눈
-    ctx.fillStyle = '#222';
-    ctx.beginPath();
-    ctx.arc(d.x + p.fx * (R - 2), d.y + p.fy * (R - 2), 8, 0, Math.PI * 2);
-    ctx.fill();
-    const ex = p.fx * 7;
-    const ey = p.fy * 7;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(d.x + ex - p.fy * 7, d.y + ey + p.fx * 7, 5, 0, Math.PI * 2);
-    ctx.arc(d.x + ex + p.fy * 7, d.y + ey - p.fx * 7, 5, 0, Math.PI * 2);
-    ctx.fill();
+    if (artReady) {
+      // 팀색 받침과 내 캐릭터의 노란 테두리를 남겨 작은 화면에서도 쉽게 구분한다.
+      ctx.fillStyle = p.hf ? '#fff' : TEAM_COLOR[p.t];
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = isMe ? '#ffd84d' : '#182337';
+      ctx.lineWidth = isMe ? 5 : 2;
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.rotate(Math.atan2(p.fy, p.fx));
+      if (p.hf) ctx.globalAlpha *= 0.45;
+      // 그림 속 총은 오른쪽을 향한다. 몸 중심을 기준으로 이동·발사 방향에 맞춰 돌린다.
+      sprite(ctx, p.t, -R * 0.95, -R * 1.45, R * 2.45, R * 2.25);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = p.hf ? '#ffffff' : TEAM_COLOR[p.t];
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = isMe ? 5 : 4;
+      ctx.strokeStyle = isMe ? '#ffd84d' : 'rgba(0,0,0,0.35)';
+      ctx.stroke();
+      // 총구 방향과 눈
+      ctx.fillStyle = '#222';
+      ctx.beginPath();
+      ctx.arc(d.x + p.fx * (R - 2), d.y + p.fy * (R - 2), 8, 0, Math.PI * 2);
+      ctx.fill();
+      const ex = p.fx * 7;
+      const ey = p.fy * 7;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(d.x + ex - p.fy * 7, d.y + ey + p.fx * 7, 5, 0, Math.PI * 2);
+      ctx.arc(d.x + ex + p.fy * 7, d.y + ey - p.fx * 7, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // 리젠구역에서 회복 중: 초록 십자가 위로 떠오른다
     if (p.hl) {
       const t = (now / 700) % 1;
@@ -304,7 +379,7 @@ window.GameRender = (() => {
     // opts.meId: 내 캐릭터 강조, opts.myTeam: 부시에 숨은 우리 팀은 반투명으로 보여줌,
     // opts.me: 폰이 미리 움직여 둔 내 위치·방향 {x, y, fx, fy}
     function draw(ctx, world, dt, now, opts = {}) {
-      drawMap(ctx, world);
+      drawCachedMap(ctx, world);
       if (!current) return;
       const snap = current;
       const at = (p) => (opts.me && p.id === opts.meId ? opts.me : p);
