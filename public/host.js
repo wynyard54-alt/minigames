@@ -41,6 +41,27 @@
   $('createBtn').onclick = () => createRoom('battle');
   $('createArenaBtn').onclick = () => createRoom('arena');
 
+  $('backHomeBtn').onclick = () => {
+    if (!room) return;
+    if (lobby && lobby.players.some(p => !p.bot) &&
+        !confirm('방을 닫고 게임 선택으로 돌아갈까요? 들어온 학생들은 다시 입장해야 해요.')) return;
+    const button = $('backHomeBtn');
+    button.disabled = true;
+    $('backHomeError').textContent = '';
+    socket.timeout(5000).emit('host:close', (err, res) => {
+      button.disabled = false;
+      if (err || !res || !res.ok) {
+        $('backHomeError').textContent = '방을 닫지 못했어요. 연결을 확인하고 다시 눌러 주세요.';
+        return;
+      }
+      room = lobby = world = null;
+      try { sessionStorage.removeItem('mg:host'); } catch {}
+      document.body.classList.remove('mode-arena');
+      $('qr').removeAttribute('src');
+      show('home');
+    });
+  };
+
   socket.on('connect', () => {
     const saved = room || loadRoom();
     if (!saved) return;
@@ -59,7 +80,7 @@
     });
   });
 
-  async function joinUrl() {
+  async function joinUrl(currentRoom) {
     let base = location.origin;
     const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
     if (local) {
@@ -79,7 +100,7 @@
         }
       } catch {}
     }
-    return `${base}/play.html?room=${room.code}`;
+    return `${base}/play.html?room=${currentRoom.code}`;
   }
 
   // 노트북에 네트워크 장치가 여러 개면(VPN 등) 학생이 접속할 주소를 고를 수 있게 한다
@@ -111,9 +132,13 @@
   }
 
   async function enterLobby() {
+    const currentRoom = room;
+    if (!currentRoom) return;
+    $('backHomeError').textContent = '';
     $('roomCode').textContent = room.code;
     $('cornerCode').textContent = room.code;
-    const url = await joinUrl();
+    const url = await joinUrl(currentRoom);
+    if (room !== currentRoom) return;
     $('joinUrl').textContent = url.replace(/^https?:\/\//, '');
     $('qr').src = '/api/qr?text=' + encodeURIComponent(url);
     if (!lobby || lobby.state === 'lobby') show('lobby');

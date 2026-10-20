@@ -1264,3 +1264,8 @@ body.flash-kill #pad {
 }
 .a-buff.expiring { border-style: dashed; }
 .a-buff b { color: #fff; }
+
+/* QR 대기실에서 게임 선택으로 돌아가기 */
+#backHomeBtn { align-self: flex-start; min-height: 44px; }
+#backHomeError { margin: 0; }
+#backHomeError:empty { display: none; }

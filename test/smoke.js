@@ -290,6 +290,26 @@ function engineTests() {
   assert.ok(board.players.length >= 3);
   console.log('arena test OK');
 
+  // QR 대기실 뒤로가기: 두 게임의 방 삭제·학생 안내·새 방 입장을 확인한다.
+  assert.equal((await ack(ahost, 'host:close')).ok, false, '결과 화면에서 대기실 닫기 거부');
+  for (const mode of ['battle', 'arena']) {
+    const owner = connect();
+    const guest = connect();
+    const created = await ack(owner, 'host:create', { mode });
+    assert.ok((await ack(guest, 'player:join', { code: created.code, name: '뒤로검사' })).ok);
+    assert.equal((await ack(guest, 'host:close')).ok, false, '학생은 방을 닫을 수 없음');
+    const kicked = once(guest, 'kicked');
+    assert.ok((await ack(owner, 'host:close')).ok);
+    assert.equal((await kicked).reason, 'room-closed');
+    assert.equal((await ack(owner, 'host:resume', created)).ok, false, '닫은 방 복원 불가');
+    assert.equal((await ack(guest, 'player:join', { code: created.code, name: '뒤로검사' })).ok, false);
+    const fresh = await ack(owner, 'host:create', { mode: mode === 'battle' ? 'arena' : 'battle' });
+    assert.ok((await ack(guest, 'player:join', { code: fresh.code, name: '새게임' })).ok);
+    await ack(owner, 'host:close');
+    owner.disconnect(); guest.disconnect();
+  }
+  console.log('대기실 뒤로가기 검사 통과');
+
   console.log('smoke test OK');
   process.exit(0);
 })().catch((e) => {

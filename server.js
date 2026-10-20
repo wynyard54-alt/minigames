@@ -324,6 +324,21 @@ io.on('connection', (socket) => {
     return room && room.hostSocket === socket.id ? room : null;
   };
 
+  // QR 대기실에서 게임 선택으로 돌아가면 방과 채널도 정리한다.
+  socket.on('host:close', (data, cb) => {
+    if (typeof data === 'function') cb = data;
+    const room = hostRoom();
+    if (!room || room.state !== 'lobby') {
+      if (typeof cb === 'function') cb({ ok: false });
+      return;
+    }
+    socket.to(room.chan).emit('kicked', { reason: 'room-closed' });
+    io.in(room.chan).socketsLeave(room.chan);
+    rooms.delete(room.code);
+    socket.data.hostOf = null;
+    if (typeof cb === 'function') cb({ ok: true });
+  });
+
   socket.on('host:start', () => {
     const room = hostRoom();
     if (!room || room.state === 'game' || room.state === 'arena' || room.players.size === 0) return;
