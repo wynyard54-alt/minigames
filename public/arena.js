@@ -80,6 +80,27 @@ window.Arena = (() => {
   };
   enemyArt.src = '/assets/arena-enemies.webp';
 
+  // 작은 바닥 그림을 반사해 이어 붙인다. 경계선 없이 반복하고 카메라 이동에도 땅에 고정된다.
+  const groundArt = new Image();
+  let groundTile = null;
+  const groundPatterns = new WeakMap();
+  groundArt.onload = () => {
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = 512;
+    const ctx = tile.getContext('2d');
+    for (let y = 0; y < 2; y++) {
+      for (let x = 0; x < 2; x++) {
+        ctx.save();
+        ctx.translate(x ? 512 : 0, y ? 512 : 0);
+        ctx.scale(x ? -1 : 1, y ? -1 : 1);
+        ctx.drawImage(groundArt, 0, 0, 256, 256);
+        ctx.restore();
+      }
+    }
+    groundTile = tile;
+  };
+  groundArt.src = '/assets/arena-ground.webp';
+
   let g = null; // 지금 판의 상태
   const rnd = (a, b) => a + Math.random() * (b - a);
   const sfx = (name, vol, gap) => window.GameSound && GameSound.play(name, vol, gap);
@@ -504,38 +525,49 @@ window.Arena = (() => {
     const by0 = Math.max(0, y0);
     const bx1 = Math.min(S, x0 + vw);
     const by1 = Math.min(S, y0 + vh);
-    ctx.fillStyle = '#1d2338';
-    ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = Math.ceil(bx0 / 80) * 80; x <= bx1; x += 80) {
-      ctx.moveTo(x, by0);
-      ctx.lineTo(x, by1);
+    let ground = groundPatterns.get(ctx);
+    if (!ground && groundTile) {
+      ground = ctx.createPattern(groundTile, 'repeat');
+      if (ground) groundPatterns.set(ctx, ground);
     }
-    for (let y = Math.ceil(by0 / 80) * 80; y <= by1; y += 80) {
-      ctx.moveTo(bx0, y);
-      ctx.lineTo(bx1, y);
-    }
-    ctx.stroke();
-    // 풀·돌 무늬: 움직일 때 넓은 땅을 달리는 느낌이 나도록 (칸마다 정해진 자리)
-    for (let cx = Math.floor(bx0 / 160); cx * 160 < bx1; cx++) {
-      for (let cy = Math.floor(by0 / 160); cy * 160 < by1; cy++) {
-        const h1 = hash(cx, cy);
-        const px = cx * 160 + (h1 % 140) + 10;
-        const py = cy * 160 + ((h1 >> 8) % 140) + 10;
-        if ((h1 >> 16) % 3 === 0) circle(ctx, px, py, 7 + ((h1 >> 4) % 6), 'rgba(255,255,255,0.045)');
-        else if ((h1 >> 16) % 3 === 1) {
-          ctx.strokeStyle = 'rgba(120,220,150,0.12)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(px - 5, py + 4);
-          ctx.lineTo(px - 2, py - 5);
-          ctx.moveTo(px, py + 4);
-          ctx.lineTo(px + 1, py - 7);
-          ctx.moveTo(px + 5, py + 4);
-          ctx.lineTo(px + 4, py - 4);
-          ctx.stroke();
+    if (ground) {
+      ctx.fillStyle = ground;
+      ctx.fillRect(bx0, by0, Math.max(0, bx1 - bx0), Math.max(0, by1 - by0));
+    } else {
+      // 그림이 늦거나 로딩 실패한 경우 기존 바닥으로 계속 플레이한다.
+      ctx.fillStyle = '#1d2338';
+      ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = Math.ceil(bx0 / 80) * 80; x <= bx1; x += 80) {
+        ctx.moveTo(x, by0);
+        ctx.lineTo(x, by1);
+      }
+      for (let y = Math.ceil(by0 / 80) * 80; y <= by1; y += 80) {
+        ctx.moveTo(bx0, y);
+        ctx.lineTo(bx1, y);
+      }
+      ctx.stroke();
+      // 풀·돌 무늬: 움직일 때 넓은 땅을 달리는 느낌이 나도록 (칸마다 정해진 자리)
+      for (let cx = Math.floor(bx0 / 160); cx * 160 < bx1; cx++) {
+        for (let cy = Math.floor(by0 / 160); cy * 160 < by1; cy++) {
+          const h1 = hash(cx, cy);
+          const px = cx * 160 + (h1 % 140) + 10;
+          const py = cy * 160 + ((h1 >> 8) % 140) + 10;
+          if ((h1 >> 16) % 3 === 0) circle(ctx, px, py, 7 + ((h1 >> 4) % 6), 'rgba(255,255,255,0.045)');
+          else if ((h1 >> 16) % 3 === 1) {
+            ctx.strokeStyle = 'rgba(120,220,150,0.12)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(px - 5, py + 4);
+            ctx.lineTo(px - 2, py - 5);
+            ctx.moveTo(px, py + 4);
+            ctx.lineTo(px + 1, py - 7);
+            ctx.moveTo(px + 5, py + 4);
+            ctx.lineTo(px + 4, py - 4);
+            ctx.stroke();
+          }
         }
       }
     }
