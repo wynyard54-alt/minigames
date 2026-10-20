@@ -10,8 +10,31 @@
   <!-- 첫 화면 -->
   <section id="home" class="screen center">
     <h1 class="logo">교실 배틀</h1>
-    <p class="sub">빨강팀 vs 파랑팀 · 폰이 조이스틱이 되는 팀 슈팅 게임</p>
-    <button id="createBtn" class="btn big">방 만들기</button>
+    <p class="sub">게임을 고르고 방을 만들면 학생들이 QR로 들어와요</p>
+    <div class="game-list">
+      <!-- 게임 1: 팀 슈팅 -->
+      <article class="game-card">
+        <div class="game-thumb battle" aria-hidden="true">
+          <span class="fighter red"></span><span class="vs">VS</span><span class="fighter blue"></span>
+        </div>
+        <div class="game-body">
+          <h2>팀 슈팅 배틀</h2>
+          <p>빨강팀 vs 파랑팀. 폰으로 움직이고 쏘는 실시간 팀 대전이에요.</p>
+          <div class="game-meta"><span>👥 2~16명</span><span>⏱ 2분</span><span>🤖 AI 채우기</span></div>
+        </div>
+        <button id="createBtn" class="btn big">방 만들기</button>
+      </article>
+      <!-- 게임 2: 자리만 만들어 둠 (다음에 추가할 게임) -->
+      <article class="game-card soon">
+        <div class="game-thumb next" aria-hidden="true"><span>＋</span></div>
+        <div class="game-body">
+          <h2>다음 게임</h2>
+          <p>새 게임이 여기에 들어와요.</p>
+          <div class="game-meta"><span>준비 중</span></div>
+        </div>
+        <button class="btn big" disabled>준비 중</button>
+      </article>
+    </div>
     <p class="hint">이 화면을 프로젝터나 TV에 띄워 주세요.</p>
   </section>
 

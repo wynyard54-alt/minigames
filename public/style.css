@@ -54,6 +54,92 @@ body {
   font-size: 44px;
 }
 
+/* ---------- 첫 화면: 게임 고르기 ---------- */
+.game-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  width: min(760px, 100%);
+}
+.game-card {
+  background: var(--panel);
+  border-radius: 22px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.game-card.soon {
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+}
+.game-card .btn {
+  margin-top: auto;
+}
+.game-card.soon .btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 1;
+}
+.game-thumb {
+  height: 130px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.game-thumb.battle {
+  background: linear-gradient(90deg, rgba(255, 77, 94, 0.35), #1d2338 45%, #1d2338 55%, rgba(61, 139, 255, 0.35));
+}
+.game-thumb.next {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 48px;
+  font-weight: 300;
+}
+/* fighters.webp: 192px 칸 4×2 (윗줄 빨강, 아랫줄 파랑 / 오른쪽·왼쪽·뒤·앞). 절반 크기로 보여 줌 */
+.fighter {
+  width: 96px;
+  height: 96px;
+  background: url('assets/fighters.webp') no-repeat;
+  background-size: 384px 192px;
+}
+.fighter.red {
+  background-position: 0 0;
+}
+.fighter.blue {
+  background-position: -96px -96px;
+}
+.game-thumb .vs {
+  font-weight: 900;
+  font-size: 22px;
+  color: var(--gold);
+}
+.game-body h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.game-body p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.game-meta span {
+  font-size: 13px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
 .sub {
   color: var(--muted);
   font-size: 18px;
