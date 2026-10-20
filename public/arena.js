@@ -464,7 +464,8 @@ window.Arena = (() => {
     for (const o of g.items) if (near(o)) it.push(Math.round(o.x), Math.round(o.y), ITEM_KEYS.indexOf(o.type));
     const b = [];
     for (const o of g.bullets) if (near(o) && b.length < 80) b.push(Math.round(o.x), Math.round(o.y));
-    g.opts.onSnap({ x: Math.round(p.x), y: Math.round(p.y), d: p.dir, tm: g.team, sh: g.buffs.shield > 0 ? 1 : 0, e, it, b });
+    // t: 폰 시계로 찍은 시각. 선생님 화면이 도착 간격이 들쭉날쭉해도 원래 간격대로 이어 그릴 수 있게
+    g.opts.onSnap({ t: Math.round(g.lastSnap), x: Math.round(p.x), y: Math.round(p.y), d: p.dir, tm: g.team, sh: g.buffs.shield > 0 ? 1 : 0, e, it, b });
   }
   function setWatched(v) {
     if (g) g.watched = !!v;

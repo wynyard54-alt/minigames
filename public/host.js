@@ -444,7 +444,8 @@
   });
 
   // 상위 6명의 플레이 모습: 폰이 보낸 위치 숫자로 작은 칸에 다시 그린다
-  const watch = new Map(); // 학생 id → { el, cv, prev, cur, t, gap }
+  const watch = new Map(); // 학생 id → { el, cv, buf: 받은 장면들, off: 폰 시계와의 차이 }
+  const WATCH_DELAY = 400; // 일부러 0.4초 늦게 보여 주면서 받은 장면 사이를 이어 그린다 (데이터 양은 그대로)
   function updateWatch(b) {
     const ids = b.watch || [];
     for (const [id, w] of watch) {
@@ -464,7 +465,7 @@
         const el = document.createElement('div');
         el.className = 'ah-tile';
         el.innerHTML = '<canvas></canvas><div class="ah-tag"><span class="r"></span><b class="n"></b><span class="s"></span></div><div class="ah-hearts"></div><div class="ah-out">💀 탈락</div>';
-        w = { el, cv: el.querySelector('canvas'), prev: null, cur: null, t: 0, gap: 200 };
+        w = { el, cv: el.querySelector('canvas'), buf: [], off: Infinity, drawn: null };
         watch.set(id, w);
       }
       if (grid.children[i] !== w.el) grid.insertBefore(w.el, grid.children[i] || null);
@@ -481,11 +482,18 @@
   socket.on('arena:snap', ({ id, s }) => {
     const w = watch.get(id);
     if (!w) return;
-    const now = performance.now();
-    if (w.cur) w.gap = Math.max(80, Math.min(500, now - w.t));
-    w.prev = w.cur;
-    w.cur = s;
-    w.t = now;
+    const t = Number(s.t);
+    if (!Number.isFinite(t)) return;
+    const last = w.buf[w.buf.length - 1];
+    if (last && t <= last.t) {
+      if (last.t - t > 5000) w.buf = []; // 학생이 새로고침해서 폰 시계가 처음부터 다시 시작한 경우
+      else return; // 순서가 뒤바뀌어 늦게 온 장면은 버린다
+    }
+    // 가장 빨리 도착한 장면 기준으로 폰 시계와의 차이를 잡는다 (조금씩 풀어 줘서 연결 상태 변화도 따라감)
+    const off = performance.now() - t;
+    w.off = !w.buf.length ? off : Math.min(off, w.off + 2);
+    w.buf.push(s);
+    if (w.buf.length > 12) w.buf.shift();
   });
   (function watchLoop() {
     requestAnimationFrame(watchLoop);
@@ -501,9 +509,23 @@
         w.cv.height = ch;
         w.drawn = null;
       }
-      if (w.drawn === w.cur && w.cur && now - w.t > w.gap) continue; // 새 소식이 없으면 다시 그리지 않음 (탈락 후 멈춘 화면)
-      Arena.drawWatch(w.cv, w.prev, w.cur, Math.min(1, (now - w.t) / w.gap));
-      if (now - w.t > w.gap) w.drawn = w.cur;
+      // 0.4초 전 시각을 사이에 둔 두 장면을 찾아 그 사이 위치를 그린다
+      const rt = now - w.off - WATCH_DELAY;
+      const buf = w.buf;
+      let i = buf.length - 1;
+      while (i > 0 && buf[i - 1].t > rt) i--;
+      const b = buf[i];
+      const a = i > 0 ? buf[i - 1] : null;
+      if (b && rt >= b.t && i === buf.length - 1) {
+        // 아직 다음 장면이 안 왔으면 마지막 장면에 멈춰 있는다 (탈락 후 멈춘 화면도 이 경우라 다시 그리지 않음)
+        if (w.drawn === b) continue;
+        Arena.drawWatch(w.cv, a, b, 1);
+        w.drawn = b;
+        continue;
+      }
+      const k = a && b ? Math.max(0, Math.min(1, (rt - a.t) / Math.max(1, b.t - a.t))) : 1;
+      Arena.drawWatch(w.cv, a, b, k);
+      w.drawn = null;
     }
   })();
   socket.on('arena:over', (r) => {
