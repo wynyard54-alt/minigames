@@ -765,6 +765,16 @@ body.started .zone > span {
 .super-btn.ready small {
   color: #fff;
 }
+.mute-btn {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  font-size: 18px;
+  width: 36px;
+  height: 32px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 .pad-net {
   font-size: 12px;
   font-weight: 700;

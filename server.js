@@ -196,6 +196,7 @@ function sendToPlayer(room, id, event, data) {
 function onMatchEvent(room, ev) {
   if (ev.type === 'damaged') {
     sendToPlayer(room, ev.id, 'ev', { type: 'damaged' });
+    sendToPlayer(room, ev.by, 'ev', { type: 'hitEnemy' }); // 쏜 사람 폰에 '맞혔다' 소리
   } else if (ev.type === 'kill') {
     sendToPlayer(room, ev.killer, 'ev', { type: 'kill' });
     sendToPlayer(room, ev.victim, 'ev', { type: 'dead' });

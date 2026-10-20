@@ -524,7 +524,7 @@ class Match {
       owner.charge += 1;
       if (owner.charge === SUPER_HITS) this.onEvent({ type: 'superReady', id: ownerId });
     }
-    this.onEvent({ type: 'damaged', id: target.id });
+    this.onEvent({ type: 'damaged', id: target.id, by: ownerId });
     if (target.hp > 0) return;
     target.hp = 0;
     target.alive = false;

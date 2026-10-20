@@ -232,9 +232,26 @@
     }
   });
 
-  socket.on('fx', (ev) => scene.fx(ev));
+  socket.on('fx', (ev) => {
+    scene.fx(ev);
+    if (ev.type === 'kill') GameSound.play('kill', 0.6, 80);
+    if (ev.type === 'super') GameSound.play('boom', 0.7);
+  });
+
+  // 큰 화면 소리: 카운트다운, KO, 필살기, 경기 종료만 (총소리는 각자 폰에서)
+  for (const ev of ['pointerdown', 'click', 'keydown']) document.addEventListener(ev, () => GameSound.unlock(), true);
+  function renderMute() {
+    $('muteBtn').textContent = GameSound.isMuted() ? '🔇 소리 꺼짐' : '🔊 소리';
+  }
+  $('muteBtn').onclick = () => {
+    GameSound.setMuted(!GameSound.isMuted());
+    renderMute();
+  };
+  renderMute();
+  let lastCd = null;
 
   socket.on('game:over', (result) => {
+    GameSound.play('win');
     renderResult(result);
     show('result');
   });
@@ -277,9 +294,14 @@
     $('timer').classList.toggle('urgent', snap.phase === 'playing' && snap.timer <= 10);
     const cd = $('countdown');
     if (snap.phase === 'countdown') {
-      cd.textContent = Math.ceil(snap.timer);
+      const n = Math.ceil(snap.timer);
+      if (n !== lastCd) GameSound.play('beep');
+      lastCd = n;
+      cd.textContent = n;
       cd.classList.remove('hidden');
     } else {
+      if (lastCd !== null) GameSound.play('go');
+      lastCd = null;
       cd.classList.add('hidden');
     }
     const feedKey = snap.feed.map((f) => f.t).join(',');

@@ -137,6 +137,8 @@
     if (!joined) return;
     world = data.world;
     view = null;
+    prevMe = null;
+    heardBullets.clear();
     scene.reset();
     pred.active = false;
     $('pFeed').innerHTML = '';
@@ -164,6 +166,7 @@
     scene.push(v);
     reconcile(v);
     renderFeed(v.feed);
+    soundFromView(v);
     const s = v.me;
     if ($('pad').classList.contains('hidden')) show('pad');
     document.body.dataset.team = s.team;
@@ -282,7 +285,10 @@
     corr.y = ey;
   }
   const cam = { x: 0, y: 0, s: 1, ready: false };
-  socket.on('fx', (ev) => scene.fx(ev));
+  socket.on('fx', (ev) => {
+    scene.fx(ev);
+    if (ev.type === 'super') GameSound.play('boom', 0.8);
+  });
 
   let feedKey = '';
   function renderFeed(feed) {
@@ -351,6 +357,48 @@
   }
   requestAnimationFrame(frame);
 
+  // ---------- 효과음 ----------
+  // 휴대폰은 화면을 터치해야 소리를 켤 수 있다 (iOS·안드로이드 공통)
+  for (const ev of ['pointerdown', 'touchend', 'click']) document.addEventListener(ev, () => GameSound.unlock(), true);
+
+  function renderMute() {
+    $('muteBtn').textContent = GameSound.isMuted() ? '🔇' : '🔊';
+    $('muteBtn').setAttribute('aria-label', GameSound.isMuted() ? '소리 켜기' : '소리 끄기');
+  }
+  $('muteBtn').addEventListener('pointerdown', (e) => e.stopPropagation());
+  $('muteBtn').onclick = () => {
+    GameSound.setMuted(!GameSound.isMuted());
+    renderMute();
+  };
+  renderMute();
+
+  let prevMe = null;
+  const heardBullets = new Set();
+  // 서버 소식을 이전 것과 비교해서 소리를 낸다 (내 총, 탄창 교체, 부시, 카운트다운 등)
+  function soundFromView(v) {
+    const s = v.me;
+    const p = prevMe;
+    prevMe = s;
+    if (p) {
+      if (s.alive && s.ammo < p.ammo) GameSound.play('shoot');
+      if (s.alive && p.alive && p.ammo === 0 && s.ammo > 0) GameSound.play('reload');
+      if (s.alive && s.inBush && !p.inBush) GameSound.play('rustle');
+      if (s.healing && !p.healing) GameSound.play('heal');
+      if (s.phase === 'countdown' && Math.ceil(s.timer) !== Math.ceil(p.timer)) GameSound.play('beep');
+      if (p.phase === 'countdown' && s.phase === 'playing') GameSound.play('go');
+    }
+    // 다른 사람 총소리는 작게. 내 몸 가까이에서 생긴 총알은 내 것이라 뺀다
+    const mine = v.players.find((x) => x.id === me.id);
+    const now = new Set();
+    for (const b of v.bullets) {
+      now.add(b[0]);
+      if (heardBullets.has(b[0])) continue;
+      heardBullets.add(b[0]);
+      if (!mine || Math.hypot(b[1] - mine.x, b[2] - mine.y) > 60) GameSound.play('shoot', 0.3, 70);
+    }
+    if (heardBullets.size > 300) for (const id of heardBullets) if (!now.has(id)) heardBullets.delete(id);
+  }
+
   function buzz(pattern) {
     if (navigator.vibrate) navigator.vibrate(pattern); // 아이폰은 지원하지 않음
   }
@@ -360,6 +408,8 @@
     document.body.classList.add(cls);
   }
   socket.on('ev', (ev) => {
+    const sfx = { damaged: 'hurt', dead: 'die', kill: 'kill', superReady: 'superReady', hitEnemy: 'hitEnemy' }[ev.type];
+    if (sfx) GameSound.play(sfx, 1, ev.type === 'hitEnemy' ? 40 : 0);
     if (ev.type === 'damaged') {
       buzz(40);
       flash('flash-hit');
@@ -376,6 +426,8 @@
 
   socket.on('game:over', (r) => {
     if (!joined) return;
+    const myTeam = view && view.me && view.me.team;
+    if (r.winner !== 'draw' && myTeam) GameSound.play(r.winner === myTeam ? 'win' : 'lose');
     resetSticks();
     const w = $('pWinner');
     w.textContent = r.winner === 'draw' ? '무승부!' : `${TEAM_NAME[r.winner]} 승리!`;

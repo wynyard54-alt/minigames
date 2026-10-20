@@ -73,6 +73,7 @@
     <ul id="feed" class="feed"></ul>
     <div class="corner">
       <button type="button" id="boardBtn" class="board-toggle" aria-expanded="false">전광판 ▾</button>
+      <button type="button" id="muteBtn" class="board-toggle">🔊 소리</button>
       <div class="corner-code">난입 방 번호 <b id="cornerCode"></b></div>
     </div>
     <div id="livePanel" class="live-board hidden">
@@ -98,6 +99,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="render.js"></script>
+  <script src="sound.js"></script>
   <script src="host.js"></script>
 </body>
 </html>
