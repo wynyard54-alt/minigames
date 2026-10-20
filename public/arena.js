@@ -181,6 +181,9 @@ window.Arena = (() => {
       elapsed0: Math.max(0, opts.elapsed || 0) / 1000,
       player: { x: S / 2, y: S / 2, hp: 5, dir: 'down', fx: 0, fy: 1 },
       cam: { x: S / 2, y: S / 2 },
+      eid: 0,
+      watched: false,
+      lastSnap: 0,
       viewR: 600,
       enemies: [],
       bullets: [],
@@ -231,7 +234,7 @@ window.Arena = (() => {
       const roll = Math.random();
       const kind = roll < CARRIER_CHANCE ? 'carrier' : roll < CARRIER_CHANCE + lv.big ? 'big' : 'small';
       const t = ENEMY[kind];
-      g.enemies.push({ x, y, kind, r: t.r, hp: t.hp, speed: t.speed * lv.speed * rnd(0.92, 1.08), flash: 0 });
+      g.enemies.push({ id: ++g.eid, x, y, kind, r: t.r, hp: t.hp, speed: t.speed * lv.speed * rnd(0.92, 1.08), flash: 0 });
     }
   }
 
@@ -442,6 +445,110 @@ window.Arena = (() => {
 
     if (p.hp <= 0 || now >= g.endAt) finish(p.hp > 0);
     else if (now - g.lastReport > 500) report(false);
+    if (g && !g.done && g.watched && now - g.lastSnap > WATCH_GAP) snap();
+  }
+
+  // ---------- 선생님 화면 관전용 장면 ----------
+  // 선생님 화면에 내 화면이 보일 때만(상위 6명) 0.2초마다 내 주변 위치를 숫자로 보낸다. 그림이 아니라 아주 작다.
+  const WATCH_GAP = 200;
+  const KINDS = ['small', 'big', 'carrier'];
+  const ITEM_KEYS = Object.keys(ITEMS);
+  function snap() {
+    if (!g.opts.onSnap) return;
+    g.lastSnap = performance.now();
+    const p = g.player;
+    const near = (o) => Math.abs(o.x - p.x) < 460 && Math.abs(o.y - p.y) < 460;
+    const e = [];
+    for (const o of g.enemies) if (near(o) && e.length < 400) e.push(o.id, Math.round(o.x), Math.round(o.y), KINDS.indexOf(o.kind));
+    const it = [];
+    for (const o of g.items) if (near(o)) it.push(Math.round(o.x), Math.round(o.y), ITEM_KEYS.indexOf(o.type));
+    const b = [];
+    for (const o of g.bullets) if (near(o) && b.length < 80) b.push(Math.round(o.x), Math.round(o.y));
+    g.opts.onSnap({ x: Math.round(p.x), y: Math.round(p.y), d: p.dir, tm: g.team, sh: g.buffs.shield > 0 ? 1 : 0, e, it, b });
+  }
+  function setWatched(v) {
+    if (g) g.watched = !!v;
+  }
+
+  // 선생님 화면의 작은 칸 하나에 학생 장면을 그린다. a: 이전 장면, b: 최근 장면, k: 둘 사이 진행(0~1)
+  const WATCH_VIEW = 500; // 작은 칸 짧은 쪽에 보이는 땅 크기 (폰보다 조금 가깝게)
+  function drawWatch(cv, a, b, k) {
+    const ctx = cv.getContext('2d');
+    const w = cv.width;
+    const h = cv.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#121626';
+    ctx.fillRect(0, 0, w, h);
+    if (!b) return;
+    const lerp = (p, q) => p + (q - p) * k;
+    const px = a ? lerp(a.x, b.x) : b.x;
+    const py = a ? lerp(a.y, b.y) : b.y;
+    const s = Math.min(w, h) / WATCH_VIEW;
+    const x0 = px - w / s / 2;
+    const y0 = py - h / s / 2;
+    ctx.setTransform(s, 0, 0, s, -s * x0, -s * y0);
+    let ground = groundPatterns.get(ctx);
+    if (!ground && groundTile) {
+      ground = ctx.createPattern(groundTile, 'repeat');
+      if (ground) groundPatterns.set(ctx, ground);
+    }
+    ctx.fillStyle = ground || '#1d2338';
+    const bx0 = Math.max(0, x0);
+    const by0 = Math.max(0, y0);
+    ctx.fillRect(bx0, by0, Math.max(0, Math.min(S, x0 + w / s) - bx0), Math.max(0, Math.min(S, y0 + h / s) - by0));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < b.it.length; i += 3) {
+      const def = ITEMS[ITEM_KEYS[b.it[i + 2]]];
+      if (!def) continue;
+      circle(ctx, b.it[i], b.it[i + 1], 18, 'rgba(255,227,91,0.25)');
+      ctx.font = '22px system-ui, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(def.icon, b.it[i], b.it[i + 1] + 1);
+    }
+    // 적은 번호로 이전 장면과 짝을 지어 부드럽게 움직인다
+    if (a && !b.prevPos) {
+      b.prevPos = new Map();
+      for (let i = 0; i < a.e.length; i += 4) b.prevPos.set(a.e[i], i);
+    }
+    for (let i = 0; i < b.e.length; i += 4) {
+      const kind = KINDS[b.e[i + 3]] || 'small';
+      const r = ENEMY[kind].r;
+      let ex = b.e[i + 1];
+      let ey = b.e[i + 2];
+      const j = b.prevPos && b.prevPos.get(b.e[i]);
+      if (j !== undefined) {
+        ex = lerp(a.e[j + 1], ex);
+        ey = lerp(a.e[j + 2], ey);
+      }
+      circle(ctx, ex + 2, ey + 4, r, 'rgba(0,0,0,0.35)');
+      const picture = enemySprites[kind];
+      if (picture) ctx.drawImage(picture[0], ex - r, ey - r, r * 2, r * 2);
+      else circle(ctx, ex, ey, r, ENEMY[kind].color);
+    }
+    for (let i = 0; i < b.b.length; i += 2) {
+      circle(ctx, b.b[i], b.b[i + 1], 8, '#f38b1e');
+      circle(ctx, b.b[i], b.b[i + 1], 5, '#ffe35b');
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(px, py + PLAYER_R * 0.8, PLAYER_R, PLAYER_R * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (b.sh) {
+      ctx.strokeStyle = 'rgba(160,220,255,0.9)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(px, py, PLAYER_R + 14, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const team = b.tm === 'blue' ? 'blue' : 'red';
+    const rect = FIGHTERS[team][b.d] || FIGHTERS[team].down;
+    if (artReady) {
+      const height = PLAYER_R * 2.4;
+      const width = (height * rect[2]) / rect[3];
+      const anchor = b.d === 'right' ? 0.4 : b.d === 'left' ? 0.6 : 0.5;
+      ctx.drawImage(art, ...rect.map((v) => v * 0.75), px - width * anchor, py + PLAYER_R * 0.8 - height, width, height);
+    } else circle(ctx, px, py, PLAYER_R, team === 'blue' ? '#3d8bff' : '#ff4d5e');
   }
 
   function report(done) {
@@ -453,6 +560,7 @@ window.Arena = (() => {
     g.done = true;
     g.survived = survived;
     report(true);
+    if (g.watched) snap(); // 선생님 화면에 마지막 모습을 남긴다
     $('aOverlay').classList.remove('hidden');
     $('aOverlayText').innerHTML =
       `<div class="a-title">${survived ? '시간 종료! 끝까지 버텼어요 🎉' : '탈락! 아쉬워요'}</div>` +
@@ -762,5 +870,5 @@ window.Arena = (() => {
   }
 
   // _state: 자동 테스트에서 진행 상황을 확인할 때만 씀
-  return { start, stop, setRank, isRunning: () => !!g && !g.done, _state: () => g };
+  return { start, stop, setRank, setWatched, drawWatch, isRunning: () => !!g && !g.done, _state: () => g };
 })();

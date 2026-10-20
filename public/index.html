@@ -84,7 +84,7 @@
             <button id="shuffleBtn" class="btn ghost">팀 랜덤 섞기</button>
             <button id="startBtn" class="btn big" disabled>게임 시작</button>
           </div>
-          <p class="hint small">이름을 누르면 내보낼 수 있어요. 학생이 새로 들어오면 그 팀의 AI가 자리를 비켜 줘요.</p>
+          <p class="hint small">이름을 누르면 내보낼 수 있어요.<span class="battle-only"> 학생이 새로 들어오면 그 팀의 AI가 자리를 비켜 줘요.</span></p>
         </div>
       </div>
     </div>
@@ -119,8 +119,11 @@
       <div class="ah-level" id="ahLevel">1단계</div>
       <div class="ah-time" id="ahTime">1:40</div>
     </div>
-    <ol id="ahList" class="ah-list"></ol>
-    <div class="ah-foot">난입 방 번호 <b id="ahCode"></b> · 20초마다 난이도가 올라가요</div>
+    <div class="ah-main">
+      <ol id="ahList" class="ah-list"></ol>
+      <div id="ahWatch" class="ah-watch"></div>
+    </div>
+    <div class="ah-foot">난입 방 번호 <b id="ahCode"></b></div>
     <button id="ahStop" class="btn ghost tiny stop">경기 종료</button>
     <div id="ahCd" class="countdown hidden"></div>
   </section>
@@ -141,6 +144,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="render.js"></script>
   <script src="sound.js"></script>
+  <script src="arena.js"></script>
   <script src="host.js"></script>
 </body>
 </html>

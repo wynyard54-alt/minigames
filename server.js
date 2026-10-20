@@ -160,6 +160,7 @@ function fitBots(room, size) {
 // 게임은 학생 폰에서 돌아가고 서버는 점수만 모은다. 그래서 통신이 느려도 끊기지 않는다.
 const ARENA_TIME = 100 * 1000;
 const ARENA_COUNTDOWN = 3000;
+const ARENA_WATCH = 6; // 선생님 화면에 플레이 모습을 보여 줄 최대 인원 (점수 상위)
 
 function arenaEntry(room, p) {
   let e = room.arena.scores.get(p.id);
@@ -458,6 +459,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 상위 6명의 폰이 보내는 작은 장면(위치 숫자)을 선생님 화면에만 그대로 넘긴다. 늦으면 버려도 된다.
+  socket.on('arena:snap', (s) => {
+    const { room, player } = findPlayerBySocket(socket);
+    if (!player || !room.arena || !room.hostSocket || !s || typeof s !== 'object') return;
+    if (!room.arena.watch || !room.arena.watch.includes(player.id)) return;
+    if (!Array.isArray(s.e) || !Array.isArray(s.it) || !Array.isArray(s.b)) return;
+    io.to(room.hostSocket).volatile.emit('arena:snap', { id: player.id, s });
+  });
+
   socket.on('player:team', (team) => {
     const { room, player } = findPlayerBySocket(socket);
     if (!player || room.state === 'game' || !TEAMS.includes(team) || player.team === team) return;
@@ -548,7 +558,8 @@ setInterval(() => {
     if (!room.arena) continue;
     const players = arenaRanking(room);
     const t = arenaTiming(room);
-    io.to(room.chan).emit('arena:board', { players, startIn: t.startIn, timeLeft: Math.max(0, room.arena.startAt + ARENA_TIME - now) });
+    room.arena.watch = players.slice(0, ARENA_WATCH).map((p) => p.id); // 선생님 화면에 플레이 모습을 띄울 상위 6명
+    io.to(room.chan).emit('arena:board', { players, watch: room.arena.watch, startIn: t.startIn, timeLeft: Math.max(0, room.arena.startAt + ARENA_TIME - now) });
     const live = [...room.arena.scores.values()].filter((e) => {
       const p = room.players.get(e.id);
       return p && p.connected && !e.done;

@@ -420,6 +420,8 @@
     arenaClock.endAt = now + Math.max(0, a.startIn) + a.duration;
     $('ahCode').textContent = room ? room.code : '';
     $('ahList').innerHTML = '';
+    for (const w of watch.values()) w.el.remove();
+    watch.clear();
     arenaCd = null;
     show('arenaHost');
   });
@@ -438,7 +440,72 @@
           `<span class="ah-score">${p.score}</span></li>`
       )
       .join('');
+    updateWatch(b);
   });
+
+  // 상위 6명의 플레이 모습: 폰이 보낸 위치 숫자로 작은 칸에 다시 그린다
+  const watch = new Map(); // 학생 id → { el, cv, prev, cur, t, gap }
+  function updateWatch(b) {
+    const ids = b.watch || [];
+    for (const [id, w] of watch) {
+      if (!ids.includes(id)) {
+        w.el.remove();
+        watch.delete(id);
+      }
+    }
+    const grid = $('ahWatch');
+    const medal = ['🥇', '🥈', '🥉'];
+    ids.forEach((id, i) => {
+      const rank = b.players.findIndex((p) => p.id === id);
+      const p = b.players[rank];
+      if (!p) return;
+      let w = watch.get(id);
+      if (!w) {
+        const el = document.createElement('div');
+        el.className = 'ah-tile';
+        el.innerHTML = '<canvas></canvas><div class="ah-tag"><span class="r"></span><b class="n"></b><span class="s"></span></div><div class="ah-hearts"></div><div class="ah-out">💀 탈락</div>';
+        w = { el, cv: el.querySelector('canvas'), prev: null, cur: null, t: 0, gap: 200 };
+        watch.set(id, w);
+      }
+      if (grid.children[i] !== w.el) grid.insertBefore(w.el, grid.children[i] || null);
+      w.el.querySelector('.r').textContent = medal[rank] || rank + 1;
+      w.el.querySelector('.n').textContent = p.name;
+      w.el.querySelector('.s').textContent = p.score + '점';
+      const out = p.done && !p.survived;
+      w.el.querySelector('.ah-hearts').textContent = out ? '' : '❤️'.repeat(p.hp);
+      w.el.classList.toggle('out', out);
+      w.el.classList.toggle('clear', p.done && p.survived);
+    });
+    grid.dataset.n = ids.length;
+  }
+  socket.on('arena:snap', ({ id, s }) => {
+    const w = watch.get(id);
+    if (!w) return;
+    const now = performance.now();
+    if (w.cur) w.gap = Math.max(80, Math.min(500, now - w.t));
+    w.prev = w.cur;
+    w.cur = s;
+    w.t = now;
+  });
+  (function watchLoop() {
+    requestAnimationFrame(watchLoop);
+    if ($('arenaHost').classList.contains('hidden') || !window.Arena) return;
+    const now = performance.now();
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    for (const w of watch.values()) {
+      const cw = Math.round(w.cv.clientWidth * dpr);
+      const ch = Math.round(w.cv.clientHeight * dpr);
+      if (!cw || !ch) continue;
+      if (w.cv.width !== cw || w.cv.height !== ch) {
+        w.cv.width = cw;
+        w.cv.height = ch;
+        w.drawn = null;
+      }
+      if (w.drawn === w.cur && w.cur && now - w.t > w.gap) continue; // 새 소식이 없으면 다시 그리지 않음 (탈락 후 멈춘 화면)
+      Arena.drawWatch(w.cv, w.prev, w.cur, Math.min(1, (now - w.t) / w.gap));
+      if (now - w.t > w.gap) w.drawn = w.cur;
+    }
+  })();
   socket.on('arena:over', (r) => {
     GameSound.play('win');
     renderResult(r);

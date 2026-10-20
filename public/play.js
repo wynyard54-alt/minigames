@@ -438,12 +438,14 @@
       elapsed: a.elapsed,
       team: (lobby && lobby.players.find((p) => p.id === me.id) || {}).team,
       onReport: (r) => socket.emit('arena:report', r),
+      onSnap: (s) => socket.volatile.emit('arena:snap', s),
     });
   });
   socket.on('arena:board', (b) => {
     if (!joined || !me) return;
     const i = b.players.findIndex((p) => p.id === me.id);
     if (i >= 0) Arena.setRank(i + 1, b.players.length);
+    Arena.setWatched((b.watch || []).includes(me.id)); // 선생님 화면에 내 화면이 보이는 중인지
   });
   socket.on('arena:over', (r) => {
     if (!joined) return;

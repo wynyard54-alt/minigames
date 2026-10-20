@@ -275,6 +275,13 @@ function engineTests() {
   ap[2].s.emit('arena:report', { score: 50, kills: 3, hp: 5, level: 1 });
   ap[0].s.emit('arena:report', { score: 40, kills: 2, hp: 3, level: 1 }); // 새로고침해서 점수가 줄어도 최고 점수 유지
   const board = await once(ahost, 'arena:board');
+  // 상위 6명의 플레이 모습: 순위표에 보여 줄 학생 목록이 오고, 그 학생의 장면은 선생님 화면에만 전달
+  assert.deepEqual(board.watch, board.players.slice(0, 6).map((p) => p.id));
+  const snapGot = once(ahost, 'arena:snap');
+  ap[0].s.emit('arena:snap', { x: 100, y: 120, d: 'down', tm: 'red', sh: 0, e: [1, 130, 120, 0], it: [], b: [] });
+  const sg = await snapGot;
+  assert.equal(sg.id, ap[0].id);
+  assert.deepEqual(sg.s.e, [1, 130, 120, 0]);
   await wait(600);
   // 늦게 들어온 학생도 남은 시간으로 시작
   const lateA = connect();
