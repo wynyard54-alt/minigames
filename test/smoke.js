@@ -52,6 +52,22 @@ function engineTests() {
   for (let i = 0; i < 10; i++) m4.step(1 / 30);
   assert.equal(g.ammo, 3, 'full magazine after reload');
 
+  // 짧게 '톡' 누른 발사: 누름·뗌이 한 번에 도착해도(다음 틱 전에) 한 발은 꼭 나간다. 탄창 교체 중이면 기억하지 않음
+  const m5 = new Match([{ id: 't', name: 'T', team: 'red' }]);
+  m5.step(3.1);
+  const t5 = m5.fighters.get('t');
+  m5.setInput('t', { mx: 0, my: 0, firing: true });
+  m5.setInput('t', { mx: 0, my: 0, firing: false });
+  m5.step(1 / 30);
+  assert.equal(t5.ammo, 2, 'quick tap fires once');
+  for (let i = 0; i < 30; i++) m5.step(1 / 30);
+  assert.equal(t5.ammo, 2, 'quick tap fires only once');
+  t5.ammo = 0;
+  m5.setInput('t', { mx: 0, my: 0, firing: true });
+  m5.setInput('t', { mx: 0, my: 0, firing: false });
+  for (let i = 0; i < 30; i++) m5.step(1 / 30);
+  assert.equal(t5.ammo, 3, 'tap during reload is not queued');
+
   // 회복: 우리 팀 리젠구역에서만, 밖에서는 시간이 지나도 그대로
   const m3 = new Match([{ id: 'h', name: 'H', team: 'red' }]);
   m3.step(3.1);

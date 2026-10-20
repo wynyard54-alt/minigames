@@ -341,6 +341,73 @@
     cam.ready = true;
   }
 
+  // ---------- 내 총알 미리 보여 주기 ----------
+  // 서버 답(왕복 + 화면 지연)을 기다리면 누르고 한참 뒤에 총알이 보여서, 같은 규칙으로 폰이 먼저 쏴서 그린다.
+  // 맞았는지·데미지는 여전히 서버가 정한다. 화면에만 먼저 보여 주는 것.
+  const shots = { list: [], ammo: 3, srvAmmo: null, cd: 0, tap: 0, lastLocal: -1e9 };
+  function shotStep(dt, now, cur) {
+    const s = view && view.me;
+    if (!s || s.phase !== 'playing' || !s.alive || !pred.active || !cur) {
+      shots.list.length = 0;
+      shots.srvAmmo = null;
+      shots.tap = 0;
+      return;
+    }
+    // 남은 총알 수는 서버 기준으로 맞춘다 (탄창이 다시 차면 바로, 한동안 안 쐈으면 그대로 따라감)
+    if (shots.srvAmmo === null || s.ammo > shots.srvAmmo || now - shots.lastLocal > 700) shots.ammo = s.ammo;
+    else shots.ammo = Math.min(shots.ammo, s.ammo);
+    shots.srvAmmo = s.ammo;
+    const W = world;
+    const enemies = cur.players.filter((p) => p.al && p.t !== s.team);
+    shots.cd -= dt;
+    if (shots.tap > 0) shots.tap -= dt;
+    if ((input.firing || shots.tap > 0) && shots.ammo >= 1 && shots.cd <= 0) {
+      // 서버와 같은 자동 보정: 바라보는 방향 ±20° 안, 가깝고 정면인 적
+      let dx = pred.fx;
+      let dy = pred.fy;
+      let best = Infinity;
+      for (const o of enemies) {
+        const d = Math.hypot(o.x - pred.x, o.y - pred.y);
+        if (d > W.BULLET_RANGE || d === 0) continue;
+        const ang = Math.acos(Math.max(-1, Math.min(1, ((o.x - pred.x) * pred.fx + (o.y - pred.y) * pred.fy) / d)));
+        if (ang > W.ASSIST_ANGLE) continue;
+        const score = ang * 400 + d;
+        if (score < best && GameEngine.hasLineOfSight(pred.x, pred.y, o.x, o.y)) {
+          best = score;
+          dx = o.x - pred.x;
+          dy = o.y - pred.y;
+        }
+      }
+      const l = Math.hypot(dx, dy) || 1;
+      dx /= l;
+      dy /= l;
+      shots.list.push({ id: 'L' + now, x: pred.x + dx * (W.PLAYER_R + 4), y: pred.y + dy * (W.PLAYER_R + 4), vx: dx * W.BULLET_SPEED, vy: dy * W.BULLET_SPEED, dist: 0 });
+      shots.ammo -= 1;
+      shots.cd = W.FIRE_COOLDOWN;
+      shots.tap = 0;
+      shots.lastLocal = now;
+      GameSound.play('shoot');
+    }
+    // 날아가다 벽·사거리·적(화면에 보이는 위치)에 닿으면 사라진다
+    const r2 = W.PLAYER_R * W.PLAYER_R;
+    shots.list = shots.list.filter((b) => {
+      const nx = b.x + b.vx * dt;
+      const ny = b.y + b.vy * dt;
+      for (const o of enemies) {
+        const vx = nx - b.x;
+        const vy = ny - b.y;
+        const t = Math.max(0, Math.min(1, ((o.x - b.x) * vx + (o.y - b.y) * vy) / (vx * vx + vy * vy || 1)));
+        if ((b.x + vx * t - o.x) ** 2 + (b.y + vy * t - o.y) ** 2 <= r2) return false;
+      }
+      b.x = nx;
+      b.y = ny;
+      b.dist += W.BULLET_SPEED * dt;
+      return b.dist <= W.BULLET_RANGE && !GameEngine.pointInWall(b.x, b.y);
+    });
+  }
+  // 그리기용: [id, x, y, 팀번호] (서버 총알과 같은 모양)
+  const localBulletsForDraw = () => shots.list.map((b) => [b.id, b.x, b.y, view.me.team === 'red' ? 0 : 1]);
+
   let lastFrame = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - lastFrame) / 1000);
@@ -350,13 +417,16 @@
     const dpr = resizeView();
     predictStep(dt, now);
     const cur = scene.update(now);
+    shotStep(dt, now, cur);
     const mine = pred.active ? pred : cur && cur.players.find((p) => p.id === me.id);
     if (mine) updateCamera(mine);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0d1020';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(cam.s * dpr, 0, 0, cam.s * dpr, -cam.x * cam.s * dpr, -cam.y * cam.s * dpr);
-    scene.draw(ctx, world, dt, now, { meId: me.id, myTeam: view.me.team, me: pred.active ? pred : null });
+    // 최근 1초 안에 폰이 먼저 쏜 적이 있으면 서버의 내 총알 대신 미리 쏜 총알을 그린다
+    const local = now - shots.lastLocal < 1000 ? localBulletsForDraw() : null;
+    scene.draw(ctx, world, dt, now, { meId: me.id, myTeam: view.me.team, me: pred.active ? pred : null, localBullets: local });
   }
   requestAnimationFrame(frame);
 
@@ -383,7 +453,7 @@
     const p = prevMe;
     prevMe = s;
     if (p) {
-      if (s.alive && s.ammo < p.ammo) GameSound.play('shoot');
+      if (s.alive && s.ammo < p.ammo && performance.now() - shots.lastLocal > 600) GameSound.play('shoot'); // 폰이 먼저 쏴서 이미 소리를 냈으면 생략
       if (s.alive && p.alive && p.ammo === 0 && s.ammo > 0) GameSound.play('reload');
       if (s.alive && s.inBush && !p.inBush) GameSound.play('rustle');
       if (s.healing && !p.healing) GameSound.play('heal');
@@ -543,6 +613,7 @@
     e.preventDefault();
     fireZone.setPointerCapture(e.pointerId);
     firePointers.add(e.pointerId);
+    shots.tap = GameEngine.WORLD.TAP_HOLD; // 짧게 톡 눌러도 한 발 (서버와 같은 규칙)
     setFiring();
   });
   for (const ev of ['pointerup', 'pointercancel']) {

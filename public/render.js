@@ -395,7 +395,7 @@ window.GameRender = (() => {
       const otherB = new Map(other.bullets.map((b) => [b[0], b]));
       const bullets = base.bullets.map((b) => {
         const q = otherB.get(b[0]);
-        return q ? [b[0], mix(b[1], q[1]), mix(b[2], q[2]), b[3]] : b;
+        return q ? [b[0], mix(b[1], q[1]), mix(b[2], q[2]), b[3], b[4]] : b;
       });
       current = { ...base, players: follow(players, dt), bullets };
       return current;
@@ -423,7 +423,9 @@ window.GameRender = (() => {
       }
 
       // 총알 (그림자 흐림 효과는 폰에서 무거워서 반투명 원 두 개로 빛을 흉내 낸다)
-      for (const [, x, y, team] of snap.bullets) {
+      // opts.localBullets: 폰이 미리 쏴 둔 내 총알. 이때 서버가 보낸 내 총알(5번째 값 1)은 겹치지 않게 뺀다
+      const shown = opts.localBullets ? snap.bullets.filter((b) => !b[4]).concat(opts.localBullets) : snap.bullets;
+      for (const [, x, y, team] of shown) {
         ctx.fillStyle = team === 0 ? 'rgba(255,77,94,0.35)' : 'rgba(61,139,255,0.35)';
         ctx.beginPath();
         ctx.arc(x, y, 14, 0, Math.PI * 2);

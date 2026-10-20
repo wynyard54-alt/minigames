@@ -11,6 +11,7 @@ const MAX_HP = 100;
 const AMMO_MAX = 3;
 const RELOAD_TIME = 0.9; // 탄창 교체 시간(초): 다 쏘면 이 시간 뒤에 한 번에 꽉 찬다
 const FIRE_COOLDOWN = 0.28;
+const TAP_HOLD = 0.35; // 발사 버튼을 아주 짧게 '톡' 눌러도(누름·뗌이 한꺼번에 도착해도) 이 시간 안에 한 발은 꼭 나가게 기억
 const RESPAWN_TIME = 3;
 const SPAWN_SHIELD = 1.5;
 // 체력은 우리 팀 리젠구역(스폰 구역) 안에서만 회복된다
@@ -172,6 +173,7 @@ class Match {
       ammo: AMMO_MAX,
       reload: 0,
       cooldown: 0,
+      tapQueue: 0,
       sinceHit: REGEN_DELAY,
       faceX: p.team === 'red' ? 1 : -1,
       faceY: 0,
@@ -239,6 +241,7 @@ class Match {
       ax /= al;
       ay /= al;
     }
+    if (input.firing && !f.input.firing) f.tapQueue = TAP_HOLD; // 누른 순간을 기억
     f.input = { mx, my, ax, ay, aiming: !!input.aiming && al > 0, firing: !!input.firing };
   }
 
@@ -274,6 +277,7 @@ class Match {
     f.faceY = dy;
     f.ammo -= 1;
     f.cooldown = FIRE_COOLDOWN;
+    f.tapQueue = 0;
     f.shield = 0; // 공격하면 스폰 보호막 해제
     f.reveal = REVEAL_TIME;
     this.bullets.push({
@@ -440,6 +444,7 @@ class Match {
       if (f.shield > 0) f.shield -= dt;
       if (f.reveal > 0) f.reveal -= dt;
       if (f.cooldown > 0) f.cooldown -= dt;
+      if (f.tapQueue > 0) f.tapQueue -= dt;
       // 탄창 교체: 한 발씩 차지 않고, 다 쓰면 교체 시간 뒤에 한 번에 꽉 찬다
       if (f.ammo === 0) {
         f.reload += dt;
@@ -465,7 +470,7 @@ class Match {
         f.faceX = mx / l;
         f.faceY = my / l;
       }
-      if (f.input.firing && f.ammo >= 1 && f.cooldown <= 0) this.fire(f.id, { facing: true });
+      if ((f.input.firing || f.tapQueue > 0) && f.ammo >= 1 && f.cooldown <= 0) this.fire(f.id, { facing: true });
       f.x = clamp(f.x, PLAYER_R, W - PLAYER_R);
       f.y = clamp(f.y, PLAYER_R, H - PLAYER_R);
       for (const w of WALLS) circleRectPush(f, PLAYER_R, w); // GameEngine.moveFighter와 같은 규칙
@@ -630,7 +635,8 @@ class Match {
     return {
       me: this.personal(id),
       players,
-      bullets: this.bullets.filter((b) => near(b.x, b.y)).map((b) => this.bulletState(b)),
+      // 5번째 값 1 = 내 총알 (폰이 미리 그려 둔 내 총알과 겹치지 않게 숨길 때 씀)
+      bullets: this.bullets.filter((b) => near(b.x, b.y)).map((b) => [...this.bulletState(b), b.owner === id ? 1 : 0]),
       feed: this.feed.slice(-3),
     };
   }
@@ -667,7 +673,10 @@ const GameEngine = {
   Match,
   TEAMS,
   POINTS,
-  WORLD: { W, H, SPAWN_ZONE_W, PLAYER_R, SPEED, AMMO_MAX, MAX_HP, BULLET_RANGE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
+  WORLD: { W, H, SPAWN_ZONE_W, PLAYER_R, SPEED, AMMO_MAX, MAX_HP, BULLET_RANGE, BULLET_SPEED, FIRE_COOLDOWN, TAP_HOLD, ASSIST_ANGLE, SUPER_HITS, SUPER_RADIUS, walls: WALLS, bushes: BUSHES },
+  // 폰이 내 총알을 서버 답보다 먼저 그려 볼 때 서버와 같은 벽·시야 규칙을 쓴다
+  pointInWall,
+  hasLineOfSight,
   // 폰에서 내 캐릭터를 미리 움직여 볼 때(예측) 서버와 똑같이 벽에 막히도록 같이 쓴다
   moveFighter(f, mx, my, dt) {
     f.x = clamp(f.x + mx * SPEED * dt, PLAYER_R, W - PLAYER_R);
