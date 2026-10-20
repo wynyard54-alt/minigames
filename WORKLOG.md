@@ -33,3 +33,7 @@ Claude와 Codex가 번갈아 작업합니다. 작업을 시작할 때 이 파일
 - 갤럭시에서 QR 주소가 `10.83.x.x`(5G 주소)로 잡혔던 적 있음 → 사용자가 직접 고른 주소를 아직 못 들음. 핫스팟 인터페이스 이름 확인 필요할 수 있음(`ifconfig`).
 - 똥피하기 같은 협동 모드(같은 대기실 재사용).
 - 연습판 링크(Claude 아티팩트): https://claude.ai/artifact/1TfmM4ZcfJSgUxLgUHymK9 (Claude만 수정 가능)
+
+## 2026-10-20 · Claude
+- `AGENTS.md`·`CLAUDE.md`·`WORKLOG.md` 추가, 연습판 원본을 `practice/`에 보관 (ac80714).
+- Codex 확인: 새 브랜치·PR 없이 **같은 브랜치에서 번갈아 작업**하기로 함 → AGENTS.md 작업 규칙 2번 수정.

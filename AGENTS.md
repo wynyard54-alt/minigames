@@ -45,7 +45,7 @@
 
 ## 작업 규칙
 1. **동시에 작업하지 않는다.** 사용자가 한쪽(Claude 또는 Codex)에만 시킨다. 시작 전에 `git pull`로 최신을 받는다.
-2. 기본 브랜치는 `claude/great-hamilton-kdkpqj` (Render·Termux 설치가 여기서 받아 감). Codex가 새 브랜치로 PR을 만들면 사용자가 이 브랜치로 Merge한다.
+2. **모두 같은 브랜치 `claude/great-hamilton-kdkpqj`에서 작업하고 바로 올린다**(새 브랜치를 만들지 않음). Render·Termux 설치(`battle update`)가 이 브랜치에서 받아 간다. 혹시 PR로 올렸다면 사용자가 이 브랜치로 Merge해야 다른 쪽과 폰에 반영된다.
 3. 고친 뒤 `npm test` 통과 확인. 화면을 바꿨다면 가능하면 브라우저로 직접 확인(폰 화면 가로·세로 둘 다).
 4. 게임 규칙을 바꾸면 README의 "게임 규칙"과 이 파일의 규칙 목록, 필요하면 `practice/practice.html` 엔진도 갱신.
 5. 윈도우 zip은 저장소에 넣지 않는다(`dist/`는 gitignore). 사용자가 필요하면 `bash tools/build-windows.sh`로 만들어 전달.
