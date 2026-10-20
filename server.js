@@ -156,10 +156,64 @@ function fitBots(room, size) {
   }
 }
 
+// ---------- 배틀 아레나: 각자 폰에서 하는 100초 점수 대결 ----------
+// 게임은 학생 폰에서 돌아가고 서버는 점수만 모은다. 그래서 통신이 느려도 끊기지 않는다.
+const ARENA_TIME = 100 * 1000;
+const ARENA_COUNTDOWN = 3000;
+
+function arenaEntry(room, p) {
+  let e = room.arena.scores.get(p.id);
+  if (!e) {
+    e = { id: p.id, name: p.name, score: 0, kills: 0, hp: 5, level: 1, done: false, survived: false };
+    room.arena.scores.set(p.id, e);
+  }
+  return e;
+}
+
+// 시작까지/끝까지 남은 시간 (늦게 들어온 학생도 같은 시각에 끝나도록)
+function arenaTiming(room) {
+  const now = Date.now();
+  const a = room.arena;
+  return {
+    startIn: a.startAt - now,
+    duration: Math.min(ARENA_TIME, a.startAt + ARENA_TIME - Math.max(now, a.startAt)),
+    elapsed: Math.max(0, now - a.startAt),
+  };
+}
+
+function arenaRanking(room) {
+  return [...room.arena.scores.values()]
+    .filter((e) => room.players.has(e.id))
+    .sort((a, b) => b.score - a.score || b.kills - a.kills || Number(b.survived) - Number(a.survived))
+    .map(({ id, name, score, kills, hp, level, done, survived }) => ({ id, name, score, kills, hp, level, done, survived }));
+}
+
+function startArena(room) {
+  const now = Date.now();
+  room.arena = { startAt: now + ARENA_COUNTDOWN, scores: new Map() };
+  room.state = 'arena';
+  for (const p of room.players.values()) if (!p.bot) arenaEntry(room, p);
+  io.to(room.chan).emit('arena:start', arenaTiming(room));
+  broadcastLobby(room);
+}
+
+function endArena(room) {
+  if (!room.arena) return;
+  const result = { mode: 'arena', players: arenaRanking(room) };
+  room.arena = null;
+  room.lastResult = result;
+  room.state = 'result';
+  for (const p of room.players.values()) p.ready = !!p.bot;
+  for (const [id, p] of room.players) if (!p.connected) room.players.delete(id);
+  io.to(room.chan).emit('arena:over', result);
+  broadcastLobby(room);
+}
+
 function lobbyView(room) {
   return {
     code: room.code,
     state: room.state,
+    mode: room.mode,
     teamMax: TEAM_MAX,
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -229,10 +283,11 @@ io.on('connection', (socket) => {
   socket.on('ping2', (t, cb) => typeof cb === 'function' && cb(Date.now()));
 
   // ---------- 선생님(호스트) 화면 ----------
-  socket.on('host:create', (_, cb) => {
+  socket.on('host:create', (data, cb) => {
     const code = newCode();
     const room = {
       code,
+      mode: data && data.mode === 'arena' ? 'arena' : 'battle', // battle: 팀 슈팅, arena: 배틀 아레나
       chan: 'room:' + code,
       hostKey: token(),
       hostSocket: socket.id,
@@ -259,7 +314,8 @@ io.on('connection', (socket) => {
     room.hostGoneAt = 0;
     socket.data.hostOf = room.code;
     socket.join(room.chan);
-    if (typeof cb === 'function') cb({ ok: true, code: room.code, world: room.match ? WORLD : null });
+    if (typeof cb === 'function') cb({ ok: true, code: room.code, mode: room.mode, world: room.match ? WORLD : null });
+    if (room.arena) socket.emit('arena:start', arenaTiming(room)); // 아레나 중에 선생님 화면을 새로고침한 경우
     broadcastLobby(room);
   });
 
@@ -270,14 +326,16 @@ io.on('connection', (socket) => {
 
   socket.on('host:start', () => {
     const room = hostRoom();
-    if (!room || room.state === 'game' || room.players.size === 0) return;
-    createMatch(room);
+    if (!room || room.state === 'game' || room.state === 'arena' || room.players.size === 0) return;
+    if (room.mode === 'arena') startArena(room);
+    else createMatch(room);
   });
 
   socket.on('host:stop', () => {
     const room = hostRoom();
-    if (!room || !room.match) return;
-    room.match.timer = 0; // 다음 틱에 결과 화면으로
+    if (!room) return;
+    if (room.arena) return endArena(room);
+    if (room.match) room.match.timer = 0; // 다음 틱에 결과 화면으로
   });
 
   socket.on('host:lobby', () => {
@@ -364,8 +422,25 @@ io.on('connection', (socket) => {
     socket.data.playerId = player.id;
     socket.join(room.chan);
     if (room.match) room.match.setConnected(player.id, true);
-    reply({ ok: true, id: player.id, key: player.key, name: player.name, inGame: !!room.match, world: WORLD });
+    reply({ ok: true, id: player.id, key: player.key, name: player.name, inGame: !!room.match, mode: room.mode, world: WORLD });
+    // 아레나 진행 중에 들어오면 남은 시간만큼 바로 시작 (이미 끝낸 학생은 다시 시작하지 않음)
+    if (room.arena && !arenaEntry(room, player).done) socket.emit('arena:start', arenaTiming(room));
     broadcastLobby(room);
+  });
+
+  socket.on('arena:report', (r) => {
+    const { room, player } = findPlayerBySocket(socket);
+    if (!player || !room.arena || !r) return;
+    const e = arenaEntry(room, player);
+    // 새로고침으로 다시 시작해도 가장 좋았던 점수는 지킨다
+    e.score = Math.max(e.score, Math.floor(Number(r.score) || 0));
+    e.kills = Math.max(e.kills, Math.floor(Number(r.kills) || 0));
+    e.hp = Math.max(0, Math.min(5, Math.floor(Number(r.hp) || 0)));
+    e.level = Math.max(1, Math.min(5, Math.floor(Number(r.level) || 1)));
+    if (r.done) {
+      e.done = true;
+      e.survived = e.hp > 0;
+    }
   });
 
   socket.on('player:team', (team) => {
@@ -451,6 +526,22 @@ setInterval(() => {
   }
 }, TICK_MS);
 
+// 배틀 아레나: 0.5초마다 순위표를 보내고, 시간이 다 되거나 모두 끝나면 결과
+setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.values()) {
+    if (!room.arena) continue;
+    const players = arenaRanking(room);
+    const t = arenaTiming(room);
+    io.to(room.chan).emit('arena:board', { players, startIn: t.startIn, timeLeft: Math.max(0, room.arena.startAt + ARENA_TIME - now) });
+    const live = [...room.arena.scores.values()].filter((e) => {
+      const p = room.players.get(e.id);
+      return p && p.connected && !e.done;
+    });
+    if (now > room.arena.startAt + ARENA_TIME + 2000 || (now > room.arena.startAt && players.length && !live.length)) endArena(room);
+  }
+}, 500);
+
 // 오래된 방과 나간 학생 정리
 setInterval(() => {
   const now = Date.now();
@@ -460,7 +551,7 @@ setInterval(() => {
       rooms.delete(code);
       continue;
     }
-    if (room.state === 'game') continue;
+    if (room.state === 'game' || room.state === 'arena') continue;
     let changed = false;
     for (const [id, p] of room.players) {
       if (!p.connected && now - p.goneAt > PLAYER_GRACE_MS) {

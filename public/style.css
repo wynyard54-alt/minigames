@@ -140,6 +140,156 @@ body {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
 }
+/* 배틀 아레나 카드 그림: 가운데 캐릭터, 사방에서 다가오는 적 */
+.game-thumb.arena {
+  position: relative;
+  background: radial-gradient(circle at center, #2a3352, #1d2338 70%);
+  overflow: hidden;
+}
+.game-thumb.arena .fighter {
+  position: relative;
+  z-index: 1;
+}
+.mob {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ff647f;
+  box-shadow: inset -3px -4px 0 rgba(0, 0, 0, 0.25);
+}
+.mob.big {
+  width: 38px;
+  height: 38px;
+  background: #a575ff;
+}
+.mob.gold {
+  background: #ffc93c;
+  box-shadow: 0 0 12px 4px rgba(255, 216, 77, 0.6);
+}
+.mob.m1 { left: 12%; top: 18%; }
+.mob.m2 { right: 10%; top: 12%; }
+.mob.m3 { left: 18%; bottom: 14%; }
+.mob.m4 { right: 16%; bottom: 18%; }
+
+/* 대기실: 배틀 아레나는 개인전이라 팀·AI 버튼을 숨기고 한 목록만 */
+body.mode-arena .bot-row,
+body.mode-arena #shuffleBtn,
+body.mode-arena .team.blue {
+  display: none;
+}
+body.mode-arena .teams {
+  grid-template-columns: 1fr;
+}
+body.mode-arena .team.red {
+  border-color: var(--gold);
+}
+body.mode-arena .team.red .team-head {
+  color: var(--gold);
+}
+
+/* 배틀 아레나: 선생님 화면 실시간 순위표 */
+#arenaHost {
+  position: fixed;
+  inset: 0;
+  padding: 20px max(24px, env(safe-area-inset-right)) 20px max(24px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ah-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.ah-title {
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--gold);
+}
+.ah-level {
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(255, 216, 77, 0.18);
+  color: var(--gold);
+}
+.ah-time {
+  margin-left: auto;
+  margin-right: 120px;
+  font-size: 40px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.ah-time.urgent {
+  color: var(--red);
+}
+.ah-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 8px 18px;
+  align-content: start;
+  overflow-y: auto;
+  flex: 1;
+}
+.ah-list li {
+  display: grid;
+  grid-template-columns: 44px minmax(80px, 140px) 1fr auto 70px;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.ah-list li.out {
+  opacity: 0.45;
+}
+.ah-list li.clear {
+  outline: 2px solid rgba(76, 219, 106, 0.6);
+}
+.ah-rank {
+  text-align: center;
+  font-size: 22px;
+}
+.ah-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ah-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.ah-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffb324, var(--gold));
+  transition: width 0.4s;
+}
+.ah-hp {
+  font-size: 14px;
+  white-space: nowrap;
+}
+.ah-score {
+  text-align: right;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ah-foot {
+  color: var(--muted);
+  font-size: 16px;
+}
+.ah-foot b {
+  color: var(--gold);
+  font-size: 22px;
+}
 .sub {
   color: var(--muted);
   font-size: 18px;
@@ -665,6 +815,11 @@ body.player.playing {
 .team-btn.blue {
   background: var(--blue);
 }
+body.mode-arena .team-pick,
+body.mode-arena .battle-only,
+body:not(.mode-arena) .arena-only {
+  display: none;
+}
 .team-btn:disabled {
   opacity: 0.25;
 }
@@ -875,6 +1030,109 @@ body.started .zone > span {
 }
 .pad-net.bad {
   color: var(--red);
+}
+/* ---------- 배틀 아레나 (폰) ---------- */
+#arena {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+#arenaCv {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.a-top {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+  font-size: 18px;
+  text-shadow: 0 2px 3px #000;
+  pointer-events: none;
+  z-index: 2;
+}
+#aLevel {
+  font-size: 14px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 216, 77, 0.2);
+  color: var(--gold);
+}
+.a-buffs {
+  position: fixed;
+  top: calc(max(8px, env(safe-area-inset-top)) + 34px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 2;
+}
+.a-buffs span {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.a-banner {
+  position: fixed;
+  top: 32%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 12, 24, 0.85);
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  font-weight: 900;
+  padding: 10px 18px;
+  border-radius: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+.a-special {
+  position: fixed;
+  right: calc(max(16px, env(safe-area-inset-right)) + 4vmin);
+  bottom: calc(env(safe-area-inset-bottom) + 6vmin);
+  z-index: 2;
+}
+.a-boom {
+  font-size: 28px !important;
+}
+.a-hint {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 6px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+.a-cd {
+  font-size: 96px;
+  color: var(--gold);
+}
+.a-title {
+  font-size: 26px;
+}
+.a-score {
+  font-size: 54px;
+  color: var(--gold);
+}
+.a-wait {
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--muted);
 }
 .pfeed {
   position: fixed;

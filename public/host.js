@@ -31,13 +31,15 @@
     }
   }
 
-  $('createBtn').onclick = () => {
-    socket.emit('host:create', null, (res) => {
+  function createRoom(mode) {
+    socket.emit('host:create', { mode }, (res) => {
       room = res;
       saveRoom();
       enterLobby();
     });
-  };
+  }
+  $('createBtn').onclick = () => createRoom('battle');
+  $('createArenaBtn').onclick = () => createRoom('arena');
 
   socket.on('connect', () => {
     const saved = room || loadRoom();
@@ -130,9 +132,13 @@
 
   function renderLobby() {
     const players = lobby.players;
+    // 배틀 아레나는 개인전: 팀·AI 버튼을 숨기고 참가자를 한 목록으로 보여 준다
+    const arena = lobby.mode === 'arena';
+    document.body.classList.toggle('mode-arena', arena);
+    $('redTitle').textContent = arena ? '참가자' : '빨강팀';
     for (const team of ['red', 'blue']) {
-      const list = players.filter((p) => p.team === team);
-      $(team + 'Count').textContent = `${list.length} / ${lobby.teamMax}명`;
+      const list = arena ? (team === 'red' ? players.filter((p) => !p.bot) : []) : players.filter((p) => p.team === team);
+      $(team + 'Count').textContent = arena ? `${list.length}명` : `${list.length} / ${lobby.teamMax}명`;
       $(team + 'List').innerHTML = list
         .map(
           (p) =>
@@ -194,6 +200,7 @@
     const players = lobby ? lobby.players : [];
     const notReady = players.filter((p) => !p.ready).length;
     if (notReady > 0 && !confirm(`아직 준비 안 한 학생이 ${notReady}명 있어요. 그래도 시작할까요?`)) return;
+    if (lobby && lobby.mode === 'arena') return socket.emit('host:start');
     const red = players.filter((p) => p.team === 'red').length;
     const blue = players.filter((p) => p.team === 'blue').length;
     if ((red === 0 || blue === 0) && !confirm('한 팀에 아무도 없어요. 그래도 시작할까요?')) return;
@@ -379,7 +386,68 @@
   setBoard(boardOpen);
 
   // ---------- 결과 ----------
+  // ---------- 배틀 아레나: 실시간 순위표 ----------
+  const arenaClock = { endAt: 0, startAt: 0 };
+  let arenaCd = null;
+  socket.on('arena:start', (a) => {
+    const now = performance.now();
+    arenaClock.startAt = now + a.startIn;
+    arenaClock.endAt = now + Math.max(0, a.startIn) + a.duration;
+    $('ahCode').textContent = room ? room.code : '';
+    $('ahList').innerHTML = '';
+    arenaCd = null;
+    show('arenaHost');
+  });
+  socket.on('arena:board', (b) => {
+    if ($('arenaHost').classList.contains('hidden')) return;
+    const best = Math.max(1, ...b.players.map((p) => p.score));
+    const medal = ['🥇', '🥈', '🥉'];
+    $('ahList').innerHTML = b.players
+      .map(
+        (p, i) =>
+          `<li class="${p.done ? (p.survived ? 'clear' : 'out') : ''}">` +
+          `<span class="ah-rank">${medal[i] || i + 1}</span>` +
+          `<span class="ah-name">${esc(p.name)}</span>` +
+          `<span class="ah-bar"><i style="width:${(100 * p.score) / best}%"></i></span>` +
+          `<span class="ah-hp">${p.done && !p.survived ? '💀 탈락' : '❤️'.repeat(p.hp)}</span>` +
+          `<span class="ah-score">${p.score}</span></li>`
+      )
+      .join('');
+  });
+  socket.on('arena:over', (r) => {
+    GameSound.play('win');
+    renderResult(r);
+    show('result');
+  });
+  $('ahStop').onclick = () => {
+    if (confirm('경기를 지금 끝낼까요?')) socket.emit('host:stop');
+  };
+  // 시간·단계·카운트다운은 선생님 화면이 직접 센다
+  setInterval(() => {
+    if ($('arenaHost').classList.contains('hidden')) return;
+    const now = performance.now();
+    const cd = $('ahCd');
+    if (now < arenaClock.startAt) {
+      const n = Math.ceil((arenaClock.startAt - now) / 1000);
+      if (n !== arenaCd) GameSound.play('beep');
+      arenaCd = n;
+      cd.textContent = n;
+      cd.classList.remove('hidden');
+    } else {
+      if (arenaCd !== null) GameSound.play('go');
+      arenaCd = null;
+      cd.classList.add('hidden');
+    }
+    const left = Math.max(0, arenaClock.endAt - now) / 1000;
+    $('ahTime').textContent = fmtTime(left);
+    $('ahTime').classList.toggle('urgent', left > 0 && left <= 10);
+    const elapsed = Math.max(0, now - arenaClock.startAt) / 1000;
+    $('ahLevel').textContent = `${Math.min(5, Math.floor(elapsed / 20) + 1)}단계`;
+  }, 200);
+
   function renderResult(r) {
+    $('pointsHint').classList.toggle('hidden', r.mode === 'arena');
+    if (r.mode === 'arena') return renderArenaResult(r);
     const w = $('winner');
     if (r.winner === 'draw') {
       w.textContent = '무승부!';
@@ -401,6 +469,24 @@
             `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td style="color:${TEAM_COLOR[p.team]}">${TEAM_NAME[p.team]}</td>` +
             `<td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td><td><b>${p.points}</b></td></tr>`
         )
+        .join('');
+  }
+
+  // 배틀 아레나 결과: 1등 크게, 2·3등은 그 아래, 전체 순위표
+  function renderArenaResult(r) {
+    const [first, second, third] = r.players;
+    const w = $('winner');
+    w.style.color = '#ffd84d';
+    w.textContent = first ? `🏆 ${first.name}` : '경기 끝!';
+    $('finalScore').textContent = first ? `${first.score}점` : '';
+    $('mvp').innerHTML = [second && `🥈 ${esc(second.name)} ${second.score}점`, third && `🥉 ${esc(third.name)} ${third.score}점`]
+      .filter(Boolean)
+      .join(' &nbsp; ');
+    $('board').innerHTML =
+      '<tr><th>순위</th><th>이름</th><th>점수</th><th>처치</th><th>결과</th></tr>' +
+      r.players
+        .slice(0, 16)
+        .map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td><b>${p.score}</b></td><td>${p.kills}</td><td>${p.survived ? '생존' : '탈락'}</td></tr>`)
         .join('');
   }
 

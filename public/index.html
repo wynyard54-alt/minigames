@@ -24,15 +24,18 @@
         </div>
         <button id="createBtn" class="btn big">방 만들기</button>
       </article>
-      <!-- 게임 2: 자리만 만들어 둠 (다음에 추가할 게임) -->
-      <article class="game-card soon">
-        <div class="game-thumb next" aria-hidden="true"><span>＋</span></div>
-        <div class="game-body">
-          <h2>다음 게임</h2>
-          <p>새 게임이 여기에 들어와요.</p>
-          <div class="game-meta"><span>준비 중</span></div>
+      <!-- 게임 2: 배틀 아레나 (각자 폰에서 하는 점수 대결) -->
+      <article class="game-card">
+        <div class="game-thumb arena" aria-hidden="true">
+          <i class="mob m1"></i><i class="mob m2 big"></i><i class="mob m3 gold"></i><i class="mob m4"></i>
+          <span class="fighter red"></span>
         </div>
-        <button class="btn big" disabled>준비 중</button>
+        <div class="game-body">
+          <h2>배틀 아레나</h2>
+          <p>사방에서 몰려오는 적을 100초 동안 물리쳐요. 다 같이 동시에, 점수로 순위 대결!</p>
+          <div class="game-meta"><span>👤 개인전</span><span>⏱ 100초</span><span>🌏 멀리서도 OK</span></div>
+        </div>
+        <button id="createArenaBtn" class="btn big">방 만들기</button>
       </article>
     </div>
     <p class="hint">이 화면을 프로젝터나 TV에 띄워 주세요.</p>
@@ -52,7 +55,7 @@
       <div class="teams-panel">
         <div class="teams">
           <div class="team red">
-            <div class="team-head"><span>빨강팀</span><span id="redCount">0</span></div>
+            <div class="team-head"><span id="redTitle">빨강팀</span><span id="redCount">0</span></div>
             <ul id="redList" class="plist"></ul>
           </div>
           <div class="team blue">
@@ -107,12 +110,25 @@
     <div id="countdown" class="countdown hidden"></div>
   </section>
 
+  <!-- 배틀 아레나: 실시간 순위표 -->
+  <section id="arenaHost" class="screen hidden">
+    <div class="ah-top">
+      <div class="ah-title">⭐ 배틀 아레나</div>
+      <div class="ah-level" id="ahLevel">1단계</div>
+      <div class="ah-time" id="ahTime">1:40</div>
+    </div>
+    <ol id="ahList" class="ah-list"></ol>
+    <div class="ah-foot">난입 방 번호 <b id="ahCode"></b> · 20초마다 난이도가 올라가요</div>
+    <button id="ahStop" class="btn ghost tiny stop">경기 종료</button>
+    <div id="ahCd" class="countdown hidden"></div>
+  </section>
+
   <!-- 결과 -->
   <section id="result" class="screen center hidden">
     <div id="winner" class="winner"></div>
     <div id="finalScore" class="final-score"></div>
     <div id="mvp" class="mvp"></div>
-    <div class="hint small">개인 점수 = 킬 +3 · 어시 +1 · 데스 −2 (최저 0점)</div>
+    <div class="hint small" id="pointsHint">개인 점수 = 킬 +3 · 어시 +1 · 데스 −2 (최저 0점)</div>
     <table id="board" class="board"></table>
     <div class="row">
       <button id="lobbyBtn" class="btn ghost">대기실로</button>

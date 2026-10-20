@@ -106,6 +106,7 @@ window.GameSound = (() => {
     beep: (v) => tone('sine', 660, 660, 0.12, 0.2 * v),
     go: (v) => tone('sine', 990, 990, 0.35, 0.25 * v),
     heal: (v) => tone('sine', 520, 780, 0.25, 0.05 * v),
+    levelUp: (v) => [440, 554, 659, 880].forEach((f, i) => tone('square', f, f, 0.09, 0.1 * v, i * 0.07)),
     win: (v) => [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.18, 0.22 * v, i * 0.12)),
     lose: (v) => [392, 330, 262].forEach((f, i) => tone('triangle', f, f, 0.25, 0.2 * v, i * 0.18)),
   };

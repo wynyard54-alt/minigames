@@ -35,7 +35,14 @@
     </div>
     <button id="readyBtn" class="btn big ready-btn">준비!</button>
     <div id="lobbyInfo" class="hint"></div>
-    <div class="howto">
+    <div class="howto arena-only">
+      <b>배틀 아레나</b><br />
+      화면 아무 데나 드래그해서 이동, 총은 가까운 적을 자동으로 쏴요<br />
+      🎁 금색 적을 잡으면 아이템! 🔥강한 총알 ⚡빠른 연사 🔱3갈래 🛡보호막 ❤️회복<br />
+      적을 잡아 특수기를 모으면 💥 버튼으로 주변 적을 한 번에!<br />
+      100초 동안 20초마다 점점 어려워져요. 점수로 순위를 겨뤄요
+    </div>
+    <div class="howto battle-only">
       <b>조작법</b><br />
       왼쪽 화면 드래그: 이동 (움직이는 쪽을 바라봐요)<br />
       오른쪽 발사 버튼: 바라보는 방향으로 발사, 누르고 있으면 연사<br />
@@ -77,6 +84,23 @@
     <div id="rotateHint" class="rotate-hint">폰을 가로로 돌리면 더 편해요</div>
   </section>
 
+  <!-- 배틀 아레나 (각자 폰에서 하는 100초 서바이벌) -->
+  <section id="arena" class="screen hidden">
+    <canvas id="arenaCv"></canvas>
+    <div class="a-top">
+      <span id="aScore">⭐ 0</span>
+      <span id="aLevel">1단계</span>
+      <span id="aTime">⏱ 100</span>
+      <span id="aHearts">❤️❤️❤️❤️❤️</span>
+    </div>
+    <div id="aBuffs" class="a-buffs"></div>
+    <div id="aBanner" class="a-banner hidden"></div>
+    <div id="aStick" class="stick hidden"><div class="knob"></div></div>
+    <button type="button" id="aSpecial" class="super-btn a-special"><b class="a-boom">💥</b><small id="aCharge">0%</small></button>
+    <div class="a-hint">아무 데나 드래그해서 이동 · 총은 가까운 적을 자동으로 쏴요</div>
+    <div id="aOverlay" class="overlay hidden"><div id="aOverlayText"></div></div>
+  </section>
+
   <!-- 결과 -->
   <section id="result" class="screen center hidden">
     <div id="pWinner" class="winner"></div>
@@ -95,6 +119,7 @@
   <script src="game.js"></script>
   <script src="render.js"></script>
   <script src="sound.js"></script>
+  <script src="arena.js"></script>
   <script src="play.js"></script>
 </body>
 </html>

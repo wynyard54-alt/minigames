@@ -252,6 +252,43 @@ function engineTests() {
   assert.equal(lobby.players.filter((p) => p.bot).length, 0, 'shrinking removes only bots');
   assert.equal(lobby.players.length, 5, 'students stay');
 
+  // 배틀 아레나: 방 만들기 → 시작 → 점수 보고 → 순위표 → 결과
+  const ahost = connect();
+  let alobby;
+  ahost.on('lobby', (l) => (alobby = l));
+  const ar = await ack(ahost, 'host:create', { mode: 'arena' });
+  const ap = [];
+  for (const name of ['가', '나', '다']) {
+    const sk = connect();
+    const res = await ack(sk, 'player:join', { code: ar.code, name });
+    ap.push({ s: sk, ...res });
+  }
+  await wait(100);
+  assert.equal(alobby.mode, 'arena');
+  const astart = once(ap[0].s, 'arena:start');
+  ahost.emit('host:start');
+  const timing = await astart;
+  assert.ok(timing.startIn > 2000 && timing.duration === 100000, 'arena timing');
+  ap[0].s.emit('arena:report', { score: 120, kills: 9, hp: 3, level: 1 });
+  ap[1].s.emit('arena:report', { score: 300, kills: 20, hp: 0, level: 2, done: true });
+  ap[2].s.emit('arena:report', { score: 50, kills: 3, hp: 5, level: 1 });
+  ap[0].s.emit('arena:report', { score: 40, kills: 2, hp: 3, level: 1 }); // 새로고침해서 점수가 줄어도 최고 점수 유지
+  const board = await once(ahost, 'arena:board');
+  await wait(600);
+  // 늦게 들어온 학생도 남은 시간으로 시작
+  const lateA = connect();
+  const lateStart = once(lateA, 'arena:start');
+  await ack(lateA, 'player:join', { code: ar.code, name: '라' });
+  assert.ok((await lateStart).duration <= 100000);
+  const aover = once(ahost, 'arena:over');
+  ahost.emit('host:stop');
+  const ares = await aover;
+  assert.equal(ares.mode, 'arena');
+  assert.deepEqual(ares.players.slice(0, 3).map((p) => [p.name, p.score]), [['나', 300], ['가', 120], ['다', 50]]);
+  assert.equal(ares.players[0].survived, false);
+  assert.ok(board.players.length >= 3);
+  console.log('arena test OK');
+
   console.log('smoke test OK');
   process.exit(0);
 })().catch((e) => {

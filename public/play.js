@@ -15,7 +15,8 @@
 
   function show(id) {
     for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== id);
-    document.body.classList.toggle('playing', id === 'pad');
+    document.body.classList.toggle('playing', id === 'pad' || id === 'arena');
+    if (id !== 'arena' && window.Arena) Arena.stop();
   }
 
   const store = {
@@ -100,6 +101,8 @@
     if (!joined || !me) return;
     const mine = data.players.find((p) => p.id === me.id);
     if (!mine) return;
+    // 배틀 아레나는 팀이 없는 개인전이라 팀 고르기를 숨긴다
+    document.body.classList.toggle('mode-arena', data.mode === 'arena');
     for (const b of document.querySelectorAll('.team-btn')) {
       const team = b.dataset.team;
       const members = data.players.filter((p) => p.team === team);
@@ -422,6 +425,39 @@
       buzz([30, 40, 30]);
       flash('flash-kill');
     }
+  });
+
+  // ---------- 배틀 아레나 (각자 폰에서 하는 점수 대결) ----------
+  socket.on('arena:start', (a) => {
+    if (!joined) return;
+    show('arena');
+    keepAwake();
+    Arena.start({
+      startIn: a.startIn,
+      duration: a.duration,
+      elapsed: a.elapsed,
+      team: (lobby && lobby.players.find((p) => p.id === me.id) || {}).team,
+      onReport: (r) => socket.emit('arena:report', r),
+    });
+  });
+  socket.on('arena:board', (b) => {
+    if (!joined || !me) return;
+    const i = b.players.findIndex((p) => p.id === me.id);
+    if (i >= 0) Arena.setRank(i + 1, b.players.length);
+  });
+  socket.on('arena:over', (r) => {
+    if (!joined) return;
+    Arena.stop();
+    const rank = r.players.findIndex((p) => p.id === me.id);
+    const mine = r.players[rank];
+    const top = r.players[0];
+    const w = $('pWinner');
+    w.textContent = rank === 0 ? '🏆 1등! 축하해요!' : top ? `🏆 1등 ${top.name}` : '경기 끝!';
+    w.style.color = '#ffd84d';
+    $('pScore').textContent = mine ? `${mine.score}점` : '';
+    $('pMine').textContent = mine ? `처치 ${mine.kills}마리 · ${mine.survived ? '끝까지 생존' : '탈락'} · 전체 ${r.players.length}명 중 ${rank + 1}등` : '';
+    GameSound.play(rank >= 0 && rank < 3 ? 'win' : 'lose');
+    show('result');
   });
 
   socket.on('game:over', (r) => {
