@@ -65,3 +65,7 @@ Claude와 Codex가 번갈아 작업합니다. 작업을 시작할 때 이 파일
 ## 2026-10-20 · Claude (인계 확인)
 - Codex 인계(97a94b0~4ae6ce0) 받아서 확인: `npm test` 통과(4방향 검사 포함), 선생님 화면·폰(가로/세로) 그림 정상, 부시 숨김·반투명 그대로 동작. 코드 변경 없음.
 - 남은 일: `practice/practice.html`에 새 그림 미적용(연습판은 아직 도형 캐릭터).
+
+## 2026-10-20 · Claude (서버 이전 안내)
+- 사용자가 Render 서버를 **싱가포르**로 새로 만듦: `https://minigames-dyt9.onrender.com` (Free, 대시보드에서 직접 생성, 기본 브랜치 자동 배포). 예전 미국 서버 `classroom-battle`과 Blueprint는 삭제.
+- `render.yaml`은 이제 쓰지 않음(남겨 둠). 교실 수업은 여전히 로컬 서버(노트북·Termux)가 기본.

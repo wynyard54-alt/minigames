@@ -36,7 +36,7 @@
 | `tools/build-windows.sh` | 윈도우 노트북용 zip(윈도우 node.exe 포함, 설치 불필요) → `dist/classroom-battle-windows.zip`. `windows/Start-Game.bat`, `windows/읽어주세요.txt` 포함. |
 | `tools/termux-install.sh` | 갤럭시 Termux 한 줄 설치. `battle`(실행), `battle update`(최신으로). GitHub `HEAD`(기본 브랜치)에서 받음 → **기본 브랜치에 올라간 코드가 곧 폰에 깔리는 코드.** |
 | `practice/practice.html` | 혼자 AI와 하는 연습판(Claude 아티팩트로 공개한 것의 원본). `game.js` 엔진을 통째로 붙여 넣은 단독 파일이라 **규칙을 바꾸면 이 파일의 엔진 부분도 같이 갱신**해야 함. |
-| `render.yaml` | Render 배포 설정(미국 서버, 해외라 느림 — 지금은 보조용). |
+| `render.yaml` | 예전 Render Blueprint 설정(미국). **지금은 안 씀** — 현재 인터넷 서버는 Render 대시보드에서 직접 만든 싱가포르 서버 `https://minigames-dyt9.onrender.com`(Free, 기본 브랜치 자동 배포). |
 
 ## 실행 방식 (중요한 결정)
 - 처음엔 Render(미국)에 배포했지만 한국·중국에서 지연이 커서 **순간이동/끊김**이 심했음. 코드 개선(예측·보간·압축)으로 줄였지만 근본 해결은 **같은 교실의 로컬 서버**.
