@@ -2,24 +2,28 @@
 // 사방에서 몰려오는 적을 자동 조준으로 쏘고, 20초마다 난이도가 올라간다. 아이템 운반 적을 잡으면 아이템이 떨어진다.
 window.Arena = (() => {
   const $ = (id) => document.getElementById(id);
-  const S = 640; // 정사각형 경기장 (폰 방향과 상관없이 모두 같은 크기로 공평하게)
+  const S = 2400; // 넓은 들판(오픈월드). 화면은 내 캐릭터를 따라 움직인다
+  const VIEW = 600; // 화면 짧은 쪽에 보이는 땅 크기. 폰마다 보이는 범위가 비슷하도록 고정
+  const FIRE_RANGE = 460; // 이 거리 안의 적만 자동으로 쏜다
   const PLAYER_R = 19;
   const SPEED = 225;
   const BULLET_SPEED = 470;
   const BULLET_LIFE = 1.1;
   const LEVEL_TIME = 20; // 이 시간(초)마다 난이도 한 단계 위로
-  // 단계별 난이도: 적 나오는 간격(초), 다가오는 속도 배율, 큰 적 비율
+  // 단계별 난이도: 적 나오는 간격(초), 다가오는 속도 배율, 큰 적 비율, 떼로 몰려오는 확률
+  // 가만히 서 있으면 3단계(40초쯤)부터 버티기 힘들게 맞춤 — 움직이고 아이템을 먹어야 끝까지 간다
   const LEVELS = [
-    { gap: 0.85, speed: 1.0, big: 0.14 },
-    { gap: 0.68, speed: 1.15, big: 0.18 },
-    { gap: 0.54, speed: 1.3, big: 0.22 },
-    { gap: 0.43, speed: 1.45, big: 0.26 },
-    { gap: 0.34, speed: 1.6, big: 0.3 },
+    { gap: 0.6, speed: 1.0, big: 0.15, pack: 0 },
+    { gap: 0.42, speed: 1.2, big: 0.2, pack: 0.08 },
+    { gap: 0.3, speed: 1.4, big: 0.26, pack: 0.14 },
+    { gap: 0.22, speed: 1.6, big: 0.32, pack: 0.2 },
+    { gap: 0.16, speed: 1.8, big: 0.38, pack: 0.26 },
   ];
+  const MAX_ENEMIES = 140; // 폰이 느려지지 않도록 한 번에 있는 적 수 제한
   const CARRIER_CHANCE = 0.09; // 아이템 운반 적이 나올 확률
   const ENEMY = {
     small: { r: 15, hp: 1, speed: 105, score: 10, charge: 9, color: '#ff647f' },
-    big: { r: 23, hp: 3, speed: 65, score: 30, charge: 18, color: '#a575ff' },
+    big: { r: 23, hp: 3, speed: 72, score: 30, charge: 18, color: '#a575ff' },
     carrier: { r: 17, hp: 2, speed: 90, score: 20, charge: 12, color: '#ffc93c' },
   };
   // 아이템: 이름, 그림, 지속 시간(초), 뽑힐 비율
@@ -121,6 +125,8 @@ window.Arena = (() => {
       endAt: now + Math.max(0, opts.startIn) + opts.duration,
       elapsed0: Math.max(0, opts.elapsed || 0) / 1000,
       player: { x: S / 2, y: S / 2, hp: 5, dir: 'down', fx: 0, fy: 1 },
+      cam: { x: S / 2, y: S / 2 },
+      viewR: 600,
       enemies: [],
       bullets: [],
       items: [],
@@ -154,14 +160,22 @@ window.Arena = (() => {
   }
 
   // ---------- 적 · 총알 · 아이템 ----------
+  // 적은 화면 바로 바깥, 내 주변 아무 방향에서 나온다
   function spawnEnemy(L) {
-    const side = Math.floor(rnd(0, 4));
-    const x = side === 0 ? -25 : side === 1 ? S + 25 : rnd(0, S);
-    const y = side === 2 ? -25 : side === 3 ? S + 25 : rnd(0, S);
-    const roll = Math.random();
-    const kind = roll < CARRIER_CHANCE ? 'carrier' : roll < CARRIER_CHANCE + LEVELS[L].big ? 'big' : 'small';
-    const t = ENEMY[kind];
-    g.enemies.push({ x, y, kind, r: t.r, hp: t.hp, speed: t.speed * LEVELS[L].speed, flash: 0 });
+    if (g.enemies.length >= MAX_ENEMIES) return;
+    const lv = LEVELS[L];
+    const a = rnd(0, Math.PI * 2);
+    const n = Math.random() < lv.pack ? 5 : 1; // 가끔 한 방향에서 떼로 몰려온다
+    for (let i = 0; i < n; i++) {
+      const d = g.viewR + 40 + i * 28;
+      const aa = a + rnd(-0.15, 0.15);
+      const x = Math.max(-40, Math.min(S + 40, g.player.x + Math.cos(aa) * d));
+      const y = Math.max(-40, Math.min(S + 40, g.player.y + Math.sin(aa) * d));
+      const roll = Math.random();
+      const kind = roll < CARRIER_CHANCE ? 'carrier' : roll < CARRIER_CHANCE + lv.big ? 'big' : 'small';
+      const t = ENEMY[kind];
+      g.enemies.push({ x, y, kind, r: t.r, hp: t.hp, speed: t.speed * lv.speed * rnd(0.92, 1.08), flash: 0 });
+    }
   }
 
   function nearest() {
@@ -169,7 +183,7 @@ window.Arena = (() => {
     let bd = Infinity;
     for (const e of g.enemies) {
       const d = Math.hypot(e.x - g.player.x, e.y - g.player.y);
-      if (d < bd) {
+      if (d < bd && d < FIRE_RANGE) {
         bd = d;
         best = e;
       }
@@ -286,11 +300,7 @@ window.Arena = (() => {
     const p = g.player;
     const elapsed = g.elapsed0 + (now - g.startAt) / 1000;
     const L = Math.min(LEVELS.length - 1, Math.floor(elapsed / LEVEL_TIME));
-    if (L > g.level) {
-      g.level = L;
-      banner(`난이도 ${L + 1}단계! 적이 더 빠르고 많아져요`);
-      sfx('levelUp');
-    }
+    if (L > g.level) g.level = L; // 따로 알리지 않고 몸으로 느끼게
     g.spawn -= dt;
     g.shoot -= dt;
     g.inv -= dt;
@@ -397,15 +407,6 @@ window.Arena = (() => {
     if (el && g && g.done) el.textContent = `지금 ${total}명 중 ${rank}등 · 다른 친구들이 끝날 때까지 기다려요`;
   }
 
-  let bannerTimer = 0;
-  function banner(text) {
-    const el = $('aBanner');
-    el.textContent = text;
-    el.classList.remove('hidden');
-    clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(() => el.classList.add('hidden'), 2200);
-  }
-
   function hud(now) {
     $('aScore').textContent = '⭐ ' + g.score;
     $('aTime').textContent = '⏱ ' + Math.max(0, Math.ceil((g.endAt - now) / 1000));
@@ -431,36 +432,67 @@ window.Arena = (() => {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
     }
-    const top = 56; // 위쪽 점수판 공간
-    const s = Math.min(w / S, (h - top - 8) / S);
-    const ox = (w - S * s) / 2;
-    const oy = top + (h - top - S * s) / 2;
+    const s = Math.min(w, h) / VIEW;
+    const vw = w / s;
+    const vh = h / s;
+    // 화면(카메라)은 내 캐릭터를 부드럽게 따라간다
+    const cam = g ? g.cam : { x: S / 2, y: S / 2 };
+    if (g) {
+      const k = 1 - Math.exp(-10 * Math.min(0.05, (now - (g.camT || now)) / 1000));
+      g.camT = now;
+      cam.x += (g.player.x - cam.x) * (g.done ? 0 : k || 1);
+      cam.y += (g.player.y - cam.y) * (g.done ? 0 : k || 1);
+      g.viewR = Math.hypot(vw, vh) / 2;
+    }
+    const x0 = cam.x - vw / 2;
+    const y0 = cam.y - vh / 2;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#0d1020';
+    ctx.fillStyle = '#121626'; // 들판 바깥
     ctx.fillRect(0, 0, w, h);
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
+    ctx.setTransform(dpr * s, 0, 0, dpr * s, -dpr * s * x0, -dpr * s * y0);
 
-    // 바닥
+    // 바닥: 보이는 부분만 그린다
+    const bx0 = Math.max(0, x0);
+    const by0 = Math.max(0, y0);
+    const bx1 = Math.min(S, x0 + vw);
+    const by1 = Math.min(S, y0 + vh);
     ctx.fillStyle = '#1d2338';
-    ctx.fillRect(0, 0, S, S);
+    ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = 0; x <= S; x += 40) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, S);
-      ctx.moveTo(0, x);
-      ctx.lineTo(S, x);
+    for (let x = Math.ceil(bx0 / 80) * 80; x <= bx1; x += 80) {
+      ctx.moveTo(x, by0);
+      ctx.lineTo(x, by1);
+    }
+    for (let y = Math.ceil(by0 / 80) * 80; y <= by1; y += 80) {
+      ctx.moveTo(bx0, y);
+      ctx.lineTo(bx1, y);
     }
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,216,77,0.35)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(2, 2, S - 4, S - 4);
+    // 풀·돌 무늬: 움직일 때 넓은 땅을 달리는 느낌이 나도록 (칸마다 정해진 자리)
+    for (let cx = Math.floor(bx0 / 160); cx * 160 < bx1; cx++) {
+      for (let cy = Math.floor(by0 / 160); cy * 160 < by1; cy++) {
+        const h1 = hash(cx, cy);
+        const px = cx * 160 + (h1 % 140) + 10;
+        const py = cy * 160 + ((h1 >> 8) % 140) + 10;
+        if ((h1 >> 16) % 3 === 0) circle(ctx, px, py, 7 + ((h1 >> 4) % 6), 'rgba(255,255,255,0.045)');
+        else if ((h1 >> 16) % 3 === 1) {
+          ctx.strokeStyle = 'rgba(120,220,150,0.12)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px - 5, py + 4);
+          ctx.lineTo(px - 2, py - 5);
+          ctx.moveTo(px, py + 4);
+          ctx.lineTo(px + 1, py - 7);
+          ctx.moveTo(px + 5, py + 4);
+          ctx.lineTo(px + 4, py - 4);
+          ctx.stroke();
+        }
+      }
+    }
     if (!g) return;
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, S, S);
-    ctx.clip();
 
     // 아이템 (사라지기 2초 전부터 깜빡임)
     ctx.textAlign = 'center';
@@ -541,6 +573,29 @@ window.Arena = (() => {
     }
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    // 화면 밖의 🎁 적과 아이템은 가장자리에 작은 표시로 알려 준다
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const marks = g.enemies.filter((e) => e.kind === 'carrier').concat(g.items);
+    for (const m of marks) {
+      const sx = (m.x - x0) * s;
+      const sy = (m.y - y0) * s;
+      if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
+      const pad = 22;
+      const ex = Math.max(pad, Math.min(w - pad, sx));
+      const ey = Math.max(pad + 72, Math.min(h - pad, sy));
+      circle(ctx, ex, ey, 13, m.type ? 'rgba(255,227,91,0.35)' : 'rgba(255,201,60,0.3)');
+      ctx.font = '14px system-ui, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(m.type ? ITEMS[m.type].icon : '🎁', ex, ey + 1);
+    }
+  }
+
+  // 칸 좌표로 늘 같은 무작위 숫자를 만든다 (바닥 무늬용)
+  function hash(x, y) {
+    let h = (x * 374761393 + y * 668265263) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return (h ^ (h >>> 16)) >>> 0;
   }
 
   function circle(ctx, x, y, r, color) {

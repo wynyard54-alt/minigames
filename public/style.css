@@ -1084,21 +1084,6 @@ body.started .zone > span {
   font-weight: 800;
   font-size: 14px;
 }
-.a-banner {
-  position: fixed;
-  top: 32%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 12, 24, 0.85);
-  border: 2px solid var(--gold);
-  color: var(--gold);
-  font-weight: 900;
-  padding: 10px 18px;
-  border-radius: 14px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 3;
-}
 .a-special {
   position: fixed;
   right: calc(max(16px, env(safe-area-inset-right)) + 4vmin);
