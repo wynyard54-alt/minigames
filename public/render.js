@@ -179,12 +179,15 @@ window.GameRender = (() => {
     ctx.ellipse(d.x, d.y + R * 0.8, R, R * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
     if (fightersReady) {
-      // 팀색 받침과 내 캐릭터의 노란 테두리를 남겨 작은 화면에서도 쉽게 구분한다.
+      // 팀색 원판은 12%만 보이게 하고, 내 캐릭터의 노란 테두리는 또렷하게 유지한다.
+      ctx.save();
+      ctx.globalAlpha *= 0.12;
       ctx.fillStyle = p.hf ? '#fff' : TEAM_COLOR[p.t];
       ctx.beginPath();
       ctx.arc(d.x, d.y, R, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = isMe ? '#ffd84d' : '#182337';
+      ctx.restore();
+      ctx.strokeStyle = isMe ? '#ffd84d' : 'rgba(24,35,55,0.15)';
       ctx.lineWidth = isMe ? 5 : 2;
       ctx.stroke();
       ctx.save();
