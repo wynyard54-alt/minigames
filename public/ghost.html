@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261024-doors" />
+    <link rel="stylesheet" href="ghost.css?v=20261024-win" />
   </head>
   <body>
     <header>
@@ -92,7 +92,7 @@
         <div id="board">
           <img
             class="map"
-            src="assets/ghost/map.webp?v=20261024-doors"
+            src="assets/ghost/map.webp?v=20261024-win"
             alt="화산 기슭, 사막, 동굴, 돌산, 설원, 숲, 언덕, 바다, 강 하구, 풀밭 탐사 지도"
           />
           <div id="nodes"></div>
@@ -164,7 +164,7 @@
             다크라이 지역에 출현하면 지역 번호 순서로 다음 빈 지역에 출현합니다.
           </p>
           <p>
-            조각은 방문하면 번호 공개, 한 명당 1개 운반. <span id="fragmentRules">캠프에서 1~8번 순서대로 반납하며,</span> 모두 돌아오면 승리합니다. 다크라이가 있는 지역에서는 조각
+            조각은 방문하면 번호 공개, 한 명당 1개 운반. <span id="fragmentRules">캠프에서 1~8번 순서대로 반납하며,</span> 8개를 모두 반납하는 순간 승리합니다. 다크라이가 있는 지역에서는 조각
             운반자가 나갈 수 없습니다. 조각이 없는 지역에 내려놓으면 다른
             플레이어가 자기 차례에 가져갈 수 있습니다.
           </p>
@@ -212,8 +212,8 @@
       </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="ghost-data.js?v=20261024-doors"></script>
+    <script src="ghost-data.js?v=20261024-win"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261024-doors"></script>
+    <script src="ghost-client.js?v=20261024-win"></script>
   </body>
 </html>

@@ -147,7 +147,7 @@ function run() {
   assert.equal(g.action("a", { type: "pickup" }), undefined);
   assert.equal(g.active.carry, 1);
 
-  // 다크라이 여섯 곳 패배, 조각 순서와 전원 귀환 승리.
+  // 다크라이 여섯 곳 패배, 조각 순서, 8번째 반납 즉시 승리(다른 친구가 밖에 있어도).
   g = new Expedition(team(), () => 0.1);
   for (let i = 0; i < 5; i++) {
     g.regions[i].dark = true;
@@ -166,10 +166,7 @@ function run() {
   g.active.carry = 8;
   g.players[1].node = "r1";
   g.action("a", { type: "deliver" });
-  assert.notEqual(g.phase, "won");
-  g.players[1].node = "camp";
-  g.action("a", { type: "end" });
-  assert.equal(g.phase, "won");
+  assert.equal(g.phase, "won", "8개째 반납하면 바로 승리");
   assert.equal(g.stage({ ...g.players[1], partner: 3, rescues: 3 }), 0);
   assert.equal(g.stage({ ...g.players[1], partner: 3, rescues: 6 }), 1);
   // 난이도마다 주사위 6면을 전부 판정: 쉬움 3/6, 어려움 2/6, 다크라이 각 1/6.
@@ -288,7 +285,6 @@ function run() {
   }
   assert.equal(g.phase, "won");
   assert.equal(g.returned, 8);
-  assert(g.players.every((p) => p.node === "camp"));
   // 1인: 조각 없는 다크라이는 진행, 숨겨진 조각/운반 조각은 회수 불가로 종료.
   const solo = () => new Expedition(team().slice(0, 1), () => 0.4);
   g = solo();

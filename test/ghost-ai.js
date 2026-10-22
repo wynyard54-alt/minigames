@@ -44,6 +44,6 @@ for (const difficulty of ['easy', 'hard']) {
     if (req.type === 'end') g.next();
     else assert.equal(g.action(g.active.id, req), undefined, JSON.stringify(req));
   }
-  assert.equal(g.phase, 'won', difficulty + '에서 조각 회수 후 전원 귀환');
+  assert.equal(g.phase, 'won', difficulty + '에서 조각 8개 회수·반납 후 승리');
 }
 console.log('고스트헌터 AI 협동·숨은 정보 보호·합법 이동·양 난이도 완주 검사 통과');

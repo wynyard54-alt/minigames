@@ -284,7 +284,8 @@ class Expedition {
     return "지금 할 수 없는 행동이에요.";
   }
   checkWin() {
-    if (this.returned === 8 && this.players.every((p) => p.node === "camp")) {
+    // 8개를 모두 반납하는 순간 승리 (캠프에 전원 모일 때까지 기다리지 않음 — 사용자 지정)
+    if (this.returned === 8) {
       this.phase = "won";
       this.note(
         "여덟 조각의 봉인이 완성되었습니다! 파트너들의 협력으로 기라티나가 평온을 되찾았습니다.",
