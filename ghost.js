@@ -1,5 +1,6 @@
 // 고스트헌터: 모든 주사위·카드·이동·승패 판정은 서버에서만 처리한다.
 const crypto = require("crypto");
+const { decide } = require("./ghost-ai");
 const D = require("./public/ghost-data");
 function shuffle(a, rng) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -337,16 +338,49 @@ function attach(io) {
       .replace(/[<>\x00-\x1f]/g, "")
       .trim()
       .slice(0, 10) || "트레이너";
-  const publish = (r) =>
+  // 방마다 한 번만 예약하고, 리셋·닫기·차례 넘김 때 지난 예약을 취소한다.
+  const aiTimers = new Map();
+  const cancelAI = (r) => {
+    clearTimeout(aiTimers.get(r.code));
+    aiTimers.delete(r.code);
+  };
+  const scheduleAI = (r) => {
+    if (aiTimers.has(r.code)) return;
+    const g = r.game;
+    if (!g?.active.ai || ["won", "lost"].includes(g.phase) ||
+        (!r.host && !r.players.some(p => !p.ai && p.socket))) return;
+    const phase = g.phase, active = g.active.id, round = g.round;
+    const delay = phase === "move" ? 3000 : phase === "end" ? 2400 : 1400;
+    const timer = setTimeout(() => {
+      aiTimers.delete(r.code);
+      if (rooms.get(r.code) !== r || r.game !== g || g.active.id !== active ||
+          g.phase !== phase || g.round !== round) return;
+      if (!r.host && !r.players.some(p => !p.ai && p.socket)) return;
+      const req = decide(g.snapshot());
+      if (!req) return;
+      if (req.reason) g.note(g.active.name + ": " + req.reason);
+      if (req.type === "end") g.next();
+      else {
+        const error = g.action(active, req);
+        if (error) { g.note(g.active.name + ": 다음 차례에 다시 시도합니다."); g.next(); }
+      }
+      publish(r);
+    }, delay);
+    timer.unref();
+    aiTimers.set(r.code, timer);
+  };
+  const publish = (r) => {
     ns.to(r.code).emit("update", {
       code: r.code,
       difficulty: r.difficulty,
       players: r.players.map(({ key, socket, ...p }) => ({
         ...p,
-        connected: !!socket,
+        connected: !!p.ai || !!socket,
       })),
       game: r.game ? r.game.snapshot() : null,
     });
+    scheduleAI(r);
+  };
   ns.on("connection", (s) => {
     s.on("create", (_, cb) => {
       let code;
@@ -377,7 +411,7 @@ function attach(io) {
       const host = d.host && d.key === r.key;
       let p;
       if (!host) {
-        p = r.players.find((p) => p.id === d.id && p.key === d.key);
+        p = r.players.find((p) => !p.ai && p.id === d.id && p.key === d.key);
         if (!p) {
           if (r.game)
             return cb({
@@ -430,24 +464,32 @@ function attach(io) {
       let error;
       if (d?.type === "close" && host) {
         ns.to(r.code).emit("closed", "선생님이 방을 닫았습니다.");
+        cancelAI(r);
         rooms.delete(r.code);
         return cb({ ok: true });
       }
-      if (d?.type === "difficulty" && host && !r.game) {
+      if (d?.type === "addAI" && host && !r.game) {
+        if (r.players.length >= 6) error = "최대 6명까지 참가할 수 있어요.";
+        else {
+          const partner = D.partners.findIndex((_, i) => !r.players.some(p => p.partner === i));
+          r.players.push({ id: secret().slice(0, 10), ai: true,
+            name: "AI " + D.partners[partner].names[0], partner, ready: true });
+        }
+      } else if (d?.type === "difficulty" && host && !r.game) {
         if (!Object.hasOwn(D.difficulties, d.difficulty)) error = "난이도를 다시 선택해 주세요.";
         else if (r.difficulty !== d.difficulty) {
           r.difficulty = d.difficulty;
-          r.players.forEach((p) => (p.ready = false));
+          r.players.forEach((p) => (p.ready = !!p.ai));
         }
       } else if (d?.type === "start" && host && !r.game) {
         if (
           r.players.length < 1 ||
-          r.players.some((p) => !p.ready || !p.socket)
+          r.players.some((p) => !p.ready || (!p.ai && !p.socket))
         )
           error = "1~6명이 모두 준비하면 시작할 수 있어요.";
         else
           r.game = new Expedition(
-            r.players.map(({ id, name, partner }) => ({ id, name, partner })),
+            r.players.map(({ id, name, partner, ai }) => ({ id, name, partner, ai: !!ai })),
             Math.random,
             r.difficulty,
           );
@@ -455,8 +497,9 @@ function attach(io) {
         d?.type === "reset" &&
         (host || (p && r.game && ["won", "lost"].includes(r.game.phase)))
       ) {
+        cancelAI(r);
         r.game = null;
-        r.players.forEach((p) => (p.ready = false));
+        r.players.forEach((p) => (p.ready = !!p.ai));
       } else if (d?.type === "kick" && host && !r.game) {
         const target = r.players.find((p) => p.id === d.id);
         if (target) {
@@ -476,6 +519,7 @@ function attach(io) {
         r.game &&
         !["won", "lost"].includes(r.game.phase)
       ) {
+        cancelAI(r);
         r.game.note("선생님이 자리를 비운 플레이어의 차례를 넘겼습니다.");
         r.game.next();
       } else if (p && !r.game && d?.type === "partner") {
@@ -518,7 +562,7 @@ function attach(io) {
         r.players.every((p) => !p.socket) &&
         Date.now() - r.touched > 3600000
       )
-        rooms.delete(code);
+        { cancelAI(r); rooms.delete(code); }
   }, 60000);
   timer.unref();
   return rooms;

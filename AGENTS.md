@@ -87,3 +87,5 @@
 - **오프닝·엔딩 삽화**(Codex): `assets/ghost/story-opening.webp`, `story-success.webp`, `story-failure.webp` 합계 약960KB. 첫 투척 전 `#opening` 개인별 닫기(누군가 투척하면 자동 닫기), 종료 `#outcome`은 실패 원인/대기실 복귀 유지. `.story-dialog`/`.story-caption`의 남색 그라데이션으로 흰 자막 가독성을 확보하며 그림 자체에 글씨 없음. 서버 판정 변경 없이 화면에서만 처리.
 
 - **난이도**: 선생님이 대기실에서만 `difficulty` 명령(easy/hard)으로 선택. 기본 hard(기존 규칙), 변경 시 준비 초기화, reset 후 설정 유지. `GhostData.difficulties`·`combatSymbol`을 서버와 화면에서 공유(쉬움 다크라이 면3/어려움 면2, 각1면). 쉬움은 실제 반납한 번호를 `returnedFragments`에 저장하여 게이지도 번호에 맞게 표시.
+- **고스트헌터 AI**: 선생님 대기실 탐사대 `#people` 바로 아래 `#addAI` → `addAI` 명령. 대기실 선생님만 추가/제거 가능, 사람+AI 최대6명·파트너 중복 금지, AI는 항상 준비/연결 표시. 게임 스냅샷 참가자 `ai` 플래그 포함. `ghost-ai.js`의 `decide(snapshot)`은 공개 정보만 사용하며 `Expedition.action`/`next`로 서버가 실제 실행. 어려움은 다음 번호만 회수, 쉬움은 순서 무관. 다크라이는 최소2명 규칙 유지(사람+AI도 두 명). 실제 참가자가 총1명일 때만 기존 1인 조각 종료 규칙 적용.
+- AI 예약은 방마다 하나, roll/act 약1.4초·move 약3초·end 약2.4초 간격. 리셋·닫기·차례 넘김 때 취소, 모든 기기 미접속 시 정지하고 재접속 시 재개. UI/난이도 변경으로 새 예약 중복 금지. reset/difficulty에서 AI 준비 상태 유지. 새 `ghost-ai.js`를 윈도우 빌드에도 포함해야 함.

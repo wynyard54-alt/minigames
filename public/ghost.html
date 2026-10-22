@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261022-lobby" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-ai" />
   </head>
   <body>
     <header>
@@ -61,6 +61,7 @@
             평온을 되찾아 주세요.
           </p>
           <div id="people"></div>
+          <button id="addAI" class="host-only secondary" type="button">＋ AI 플레이어 추가</button>
         </div>
         <section class="difficulty-panel" aria-labelledby="difficultyTitle">
           <h3 id="difficultyTitle">난이도</h3>
@@ -211,8 +212,8 @@
       </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="ghost-data.js?v=20261022-lobby"></script>
+    <script src="ghost-data.js?v=20261022-ai"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261022-lobby"></script>
+    <script src="ghost-client.js?v=20261022-ai"></script>
   </body>
 </html>

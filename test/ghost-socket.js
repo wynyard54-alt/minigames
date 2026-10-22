@@ -101,7 +101,43 @@ const connect = (url) =>
     assert((await ack(battle, "host:close", {})).ok);
     assert((await ack(newHost, "command", { type: "close" })).ok);
     assert((await ack(extra, "join", { code: r.code })).error);
-    console.log("고스트헌터 방·권한·6명 제한·복구·기존 게임 격리 검사 통과");
+    // AI는 선생님이 대기실에서 추가, 정원/파트너 중복/준비/자동 차례를 검증.
+    const aiHost = await connect(url + "/ghost");
+    const aiRoom = await ack(aiHost, "create", {});
+    assert((await ack(aiHost, "command", { type: "addAI" })).ok);
+    const human = await connect(url + "/ghost");
+    await ack(human, "join", { code: aiRoom.code, name: "AI 친구" });
+    assert((await ack(human, "command", { type: "addAI" })).error);
+    const ar = ghostRooms.get(aiRoom.code);
+    assert(ar.players[0].ai && ar.players[0].ready);
+    assert.notEqual(ar.players[0].partner, ar.players[1].partner);
+    for (let i = 0; i < 4; i++) assert((await ack(aiHost, "command", { type: "addAI" })).ok);
+    assert((await ack(aiHost, "command", { type: "addAI" })).error);
+    assert.equal(new Set(ar.players.map(p => p.partner)).size, 6);
+    await ack(aiHost, "command", { type: "difficulty", difficulty: "easy" });
+    assert(ar.players.filter(p => p.ai).every(p => p.ready));
+    await ack(human, "command", { type: "ready" });
+    await ack(aiHost, "command", { type: "start" });
+    ar.game.rng = () => 0.99;
+    assert((await ack(aiHost, "command", { type: "addAI" })).error);
+    // 실제 서버 타이머가 AI 한 차례를 마치고 사람에게 넘기는지 확인.
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("AI 자동 차례 시간 초과")), 18000);
+      const poll = setInterval(() => {
+        if (ar.game.turn === 1) { clearTimeout(timeout); clearInterval(poll); resolve(); }
+      }, 50);
+    });
+    assert.equal(ar.game.phase, "roll");
+    await ack(aiHost, "command", { type: "skip" }); // 다음 AI 예약 발생
+    await ack(aiHost, "command", { type: "reset" });
+    await new Promise(resolve => setTimeout(resolve, 1600));
+    assert.equal(ar.game, null, "리셋 후 이전 AI 예약은 실행하지 않음");
+    assert(ar.players.filter(p => p.ai).every(p => p.ready));
+    const removed = ar.players.find(p => p.ai).id;
+    await ack(aiHost, "command", { type: "kick", id: removed });
+    assert(!ar.players.some(p => p.id === removed));
+    await ack(aiHost, "command", { type: "close" });
+    console.log("고스트헌터 방·권한·6명 제한·복구·기존 게임 격리·AI 자동 차례 검사 통과");
     clients.forEach((s) => s.disconnect());
     await new Promise((r) => server.close(r));
     process.exit(0);

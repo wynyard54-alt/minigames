@@ -157,6 +157,7 @@
   };
   $("difficultyEasy").onclick = () => command("difficulty", { difficulty: "easy" });
   $("difficultyHard").onclick = () => command("difficulty", { difficulty: "hard" });
+  $("addAI").onclick = () => command("addAI");
   $("start").onclick = () => command("start");
   $("close").onclick = () => {
     if (confirm("방을 닫고 게임 선택으로 돌아갈까요?")) command("close");
@@ -476,6 +477,8 @@
   }
   function lobby() {
     show("qrArea", host);
+    show("addAI", host);
+    $("addAI").disabled = room.players.length >= 6;
     show("start", host);
     show("close", host);
     show("ready", !host);
@@ -492,14 +495,14 @@
       const label = document.createElement("span");
       label.textContent = p.name + (p.id === me?.id ? " (나)" : "");
       const state = document.createElement("small");
-      state.textContent = !p.connected
+      state.textContent = p.ai ? "🤖 AI · 준비 완료" : !p.connected
         ? "연결 끊김"
         : (p.ready ? "✔ 준비 · " : "") + D.partners[p.partner].names[0];
       label.append(state);
       el.append(label);
       if (host)
         el.append(
-          button("내보내기", () => {
+          button(p.ai ? "AI 제거" : "내보내기", () => {
             if (confirm(p.name + "님을 내보낼까요?"))
               command("kick", { id: p.id });
           }),
