@@ -233,14 +233,19 @@
     }
     $("people").replaceChildren();
     room.players.forEach((p) => {
+      // 팀 슈팅 대기실처럼 이름 칸: 파트너 그림 + 이름 + 상태 (준비하면 초록)
       const el = document.createElement("div");
-      el.className = "person";
-      el.textContent =
-        p.name +
-        " · " +
-        D.partners[p.partner].names[0] +
-        " · " +
-        (!p.connected ? "연결 끊김" : p.ready ? "준비 완료" : "선택 중");
+      el.className =
+        "person" + (p.ready ? " ready" : "") + (p.connected ? "" : " away");
+      el.append(image(D.partners[p.partner].color + "-0.webp", ""));
+      const label = document.createElement("span");
+      label.textContent = p.name + (p.id === me?.id ? " (나)" : "");
+      const state = document.createElement("small");
+      state.textContent = !p.connected
+        ? "연결 끊김"
+        : (p.ready ? "✔ 준비 · " : "") + D.partners[p.partner].names[0];
+      label.append(state);
+      el.append(label);
       if (host)
         el.append(
           button("내보내기", () => {
@@ -254,7 +259,20 @@
       room.players.length < 1 ||
       room.players.some((p) => !p.ready || !p.connected);
     const mine = room.players.find((p) => p.id === me?.id);
-    text("ready", mine?.ready ? "준비 취소" : "준비하기");
+    text("ready", mine?.ready ? "준비 취소" : "준비!");
+    $("ready").classList.toggle("done", !!mine?.ready);
+    text("myName", mine?.name || "");
+    text("peopleCount", room.players.length + " / 6명");
+    text(
+      "readyCount",
+      room.players.length
+        ? "준비 " +
+            room.players.filter((p) => p.ready).length +
+            " / " +
+            room.players.length +
+            "명"
+        : "학생을 기다리는 중…",
+    );
     $("choices").replaceChildren();
     if (!host)
       D.partners.forEach((p, i) => {

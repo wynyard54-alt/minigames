@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261022-field-guide" />
+    <link rel="stylesheet" href="ghost.css?v=20261023-lobby-look" />
   </head>
   <body>
     <header>
@@ -14,8 +14,9 @@
       <span id="connection" role="status">연결 중…</span>
     </header>
     <p id="error" role="alert"></p>
-    <section id="join" class="panel hidden">
-      <h2>탐사대 합류</h2>
+    <!-- 학생 입장: 팀 슈팅·아레나 입장 화면과 같은 모양 -->
+    <section id="join" class="hidden">
+      <h2 class="gl-logo">고스트헌터 <small>ver.포켓몬</small></h2>
       <form id="joinForm">
         <label
           >방 번호<input
@@ -23,37 +24,57 @@
             inputmode="numeric"
             maxlength="4"
             required
-            pattern="[0-9]{4}" /></label
-        ><label>이름<input id="name" maxlength="10" required /></label
-        ><button>입장하기</button>
+            pattern="[0-9]{4}"
+            placeholder="4자리 숫자" /></label
+        ><label
+          >내 이름<input
+            id="name"
+            maxlength="10"
+            required
+            placeholder="닉네임 (10자 이내)" /></label
+        ><button class="big">입장하기</button>
       </form>
     </section>
-    <section id="lobby" class="panel hidden">
-      <h2>탐사대 대기실 <strong id="roomCode"></strong></h2>
-      <p>
-        반물질을 관장하는 기라티나가 폭주했습니다. 아르세우스가 남긴 봉인조각
-        8개를 회수하고, 파트너와 함께 평온을 되찾아주세요.
-      </p>
-      <div id="qrArea" class="hidden">
-        <img id="qr" alt="학생 입장 QR" /><label
+    <!-- 대기실: 선생님은 팀 슈팅 대기실처럼 왼쪽 QR·방 번호 + 오른쪽 탐사대, 학생은 한 화면에 파트너 고르기 -->
+    <section id="lobby" class="hidden">
+      <div id="qrArea" class="gl-join hidden">
+        <button id="close" class="secondary tiny hidden">← 게임 선택으로</button>
+        <div class="gl-join-title">폰 카메라로 QR을 찍어서 들어오세요</div>
+        <img id="qr" alt="학생 입장 QR" />
+        <div class="gl-code-label">방 번호</div>
+        <strong id="roomCode" class="gl-code"></strong>
+        <p id="joinUrl"></p>
+        <label class="gl-address"
           >접속 주소<select id="address"></select
         ></label>
-        <p id="joinUrl"></p>
         <a id="joinHere" href="ghost.html" target="_blank" rel="noopener"
           >이 기기에서 참가하기 ↗</a
         >
       </div>
-      <div id="people"></div>
-      <div id="choices"></div>
-      <button id="ready" class="hidden">준비하기</button
-      ><button id="start" class="hidden">탐사 시작</button
-      ><button id="close" class="secondary hidden">
-        방 닫고 게임 선택으로
-      </button>
-      <p>
-        1~6명 · 추천 3~4명. 혼자 확인하려면 위의 ‘이 기기에서 참가하기’를
-        누르세요. 각자 다른 파트너를 고르고 준비해주세요.
-      </p>
+      <div class="gl-main">
+        <div id="myName" class="gl-me student-only"></div>
+        <p class="gl-sub student-only">파트너를 고르고 준비 버튼을 눌러 주세요</p>
+        <div class="gl-team">
+          <div class="gl-head">
+            <span>🔦 탐사대</span><span id="peopleCount"></span>
+          </div>
+          <p class="gl-story">
+            기라티나가 폭주했어요! 아르세우스가 남긴 봉인조각 8개를 모아
+            평온을 되찾아 주세요.
+          </p>
+          <div id="people"></div>
+        </div>
+        <div id="choices"></div>
+        <button id="ready" class="big hidden">준비!</button>
+        <div class="gl-bottom">
+          <div id="readyCount" class="gl-ready"></div>
+          <button id="start" class="big hidden">탐사 시작</button>
+          <p class="gl-hint host-only">
+            1~6명 · 추천 3~4명 · 학생마다 다른 파트너를 골라요. 혼자 확인하려면
+            왼쪽의 ‘이 기기에서 참가하기’를 누르세요.
+          </p>
+        </div>
+      </div>
     </section>
     <main id="game" class="hidden">
       <section class="board-panel">
@@ -173,6 +194,6 @@
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
-    <script src="ghost-client.js?v=20261022-field-guide"></script>
+    <script src="ghost-client.js?v=20261023-lobby-look"></script>
   </body>
 </html>

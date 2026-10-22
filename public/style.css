@@ -59,7 +59,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
-  width: min(760px, 100%);
+  width: min(1140px, 100%);
 }
 .game-card {
   background: var(--panel);
@@ -121,6 +121,11 @@ body {
 .game-body h2 {
   margin: 0 0 6px;
   font-size: 24px;
+}
+.game-body h2 small {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 700;
 }
 .game-body p {
   margin: 0;
@@ -1396,6 +1401,21 @@ body.flash-kill #pad {
 }
 
 /* 세 번째 게임 미리보기: 준비한 지도와 파트너 그림을 재사용한다. */
-.game-thumb.ghost{display:grid;place-items:center;background:linear-gradient(90deg,#182b4677,#654a8777),url('assets/ghost/map.webp') center 60%/cover}
-.game-thumb.ghost img{height:125px;width:200px;object-fit:contain;filter:drop-shadow(0 3px 3px #0008)}
-.game-card a.btn{text-decoration:none;text-align:center}
+/* 고스트헌터 카드 그림: 다른 두 카드처럼 어두운 바탕 + 캐릭터 둘 (지도는 은은하게만) */
+.game-thumb.ghost {
+  position: relative;
+  overflow: hidden;
+  gap: 0;
+  background: linear-gradient(90deg, rgba(76, 219, 106, 0.3), rgba(29, 35, 56, 0) 45%, rgba(29, 35, 56, 0) 55%, rgba(157, 110, 255, 0.35)),
+    linear-gradient(rgba(29, 35, 56, 0.82), rgba(29, 35, 56, 0.82)), url('assets/ghost/map.webp') center 60% / cover;
+}
+.game-thumb.ghost img {
+  height: 112px;
+  width: 150px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.5));
+}
+.game-card a.btn {
+  text-decoration: none;
+  text-align: center;
+}
