@@ -292,7 +292,7 @@
       } else if (!r.dark && o.mobs.length < 2 && r.mobs.length === 2)
         later(after + 420, () => {
           // 한 마리만 더 오면 다크라이: 한 번 경고
-          const w = fxEl("danger", clusterPos(r.id), "<b>⚠ 1마리 더 오면 다크라이!</b>");
+          const w = fxEl("danger", clusterPos(r.id), "<b>⚠ 위험!</b>");
           later(2800, () => w.remove());
         });
       // 구조 성공: 사라진 포켓몬을 잠깐 그대로 두었다가 몬스터볼로 쏙
