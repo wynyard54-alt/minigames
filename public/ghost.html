@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261022-difficulty" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-lobby" />
   </head>
   <body>
     <header>
@@ -48,9 +48,6 @@
         <label class="gl-address"
           >접속 주소<select id="address"></select
         ></label>
-        <a id="joinHere" href="ghost.html" target="_blank" rel="noopener"
-          >이 기기에서 참가하기 ↗</a
-        >
       </div>
       <div class="gl-main">
         <div id="myName" class="gl-me student-only"></div>
@@ -80,8 +77,8 @@
           <div id="readyCount" class="gl-ready"></div>
           <button id="start" class="big hidden">탐사 시작</button>
           <p class="gl-hint host-only">
-            1~6명 · 추천 3~4명 · 학생마다 다른 파트너를 골라요. 혼자 확인하려면
-            왼쪽의 ‘이 기기에서 참가하기’를 누르세요.
+            1~6명 · 추천 3~4명 · 학생마다 다른 파트너를 골라요.
+            학생들은 QR이나 방 번호로 참가하고, 모두 준비하면 선생님이 탐사를 시작해 주세요.
           </p>
         </div>
       </div>
@@ -214,8 +211,8 @@
       </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="ghost-data.js?v=20261022-difficulty"></script>
+    <script src="ghost-data.js?v=20261022-lobby"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261022-difficulty"></script>
+    <script src="ghost-client.js?v=20261022-lobby"></script>
   </body>
 </html>

@@ -481,7 +481,6 @@
     show("ready", !host);
     if (host) {
       qr(room.code);
-      $("joinHere").href = "ghost.html?room=" + room.code;
     }
     $("people").replaceChildren();
     room.players.forEach((p) => {

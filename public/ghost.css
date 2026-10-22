@@ -1072,9 +1072,6 @@ body:not(.student) #lobby.hidden {
   font-size: 14px;
   padding: 8px;
 }
-#joinHere {
-  font-size: 14px;
-}
 .gl-main {
   display: flex;
   flex-direction: column;
