@@ -1275,3 +1275,27 @@ body.student .gl-bottom {
     font-size: 32px;
   }
 }
+
+/* 대기실의 게임 방법 상자 */
+.gl-rules #rulesBox {
+  background: var(--gl-panel);
+  border: 0;
+  border-radius: 18px;
+  margin: 0;
+}
+.gl-rules #rulesBox summary {
+  font-size: 18px;
+  padding: 2px 0;
+}
+body.student .gl-rules {
+  order: 5;
+}
+.rules-note {
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  padding-top: 8px;
+}
+#muteBtn {
+  margin-left: 4px;
+  padding: 6px 10px;
+  box-shadow: none;
+}

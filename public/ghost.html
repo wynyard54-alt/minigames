@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261023-lobby-look" />
+    <link rel="stylesheet" href="ghost.css?v=20261023-sound" />
   </head>
   <body>
     <header>
       <a href="/">← 게임 선택</a>
       <h1>고스트헌터 <small>ver.포켓몬</small></h1>
       <span id="connection" role="status">연결 중…</span>
+      <button id="muteBtn" class="secondary tiny" type="button" aria-label="소리 켜기/끄기">🔊</button>
     </header>
     <p id="error" role="alert"></p>
     <!-- 학생 입장: 팀 슈팅·아레나 입장 화면과 같은 모양 -->
@@ -66,6 +67,7 @@
         </div>
         <div id="choices"></div>
         <button id="ready" class="big hidden">준비!</button>
+        <div id="rulesLobby" class="gl-rules"></div>
         <div class="gl-bottom">
           <div id="readyCount" class="gl-ready"></div>
           <button id="start" class="big hidden">탐사 시작</button>
@@ -135,14 +137,10 @@
           <summary>탐사 기록</summary>
           <ol id="log"></ol>
         </details>
-        <details class="panel">
-          <summary>게임 방법</summary>
-          <p>
-            1인 플레이에서도 다크라이는 잡을 수 없습니다. 봉인조각이 있는 지역에
-            다크라이가 생기면 즉시 종료합니다. 조각이 없는 지역이면 계속
-            진행합니다. 조각을 들고 다크라이 지역에 들어가도 회수가 불가능해져
-            종료됩니다.
-          </p>
+        <div id="rulesHome"></div>
+        <!-- 게임 방법: 대기실에서는 대기실 안으로, 게임 중에는 위 자리(rulesHome)로 옮겨 같은 내용을 보여 준다 -->
+        <details id="rulesBox" class="panel">
+          <summary>📖 게임 방법</summary>
           <p>
             기라티나가 폭주했습니다. 아르세우스가 남긴 봉인조각 8개를 회수해
             파트너와 함께 폭주를 막아주세요.
@@ -171,6 +169,12 @@
             구조 참여 3마리·6마리에 진화(리오르는 6마리). 최종 진화하면 이동 +1.
           </p>
           <p id="partnerFieldGuide"></p>
+          <p class="rules-note">
+            ※ 1인 플레이에서도 다크라이는 잡을 수 없습니다. 봉인조각이 있는 지역에
+            다크라이가 생기면 즉시 종료합니다. 조각이 없는 지역이면 계속
+            진행합니다. 조각을 들고 다크라이 지역에 들어가도 회수가 불가능해져
+            종료됩니다.
+          </p>
         </details>
         <div id="hostControls" class="panel hidden">
           <button id="skip" class="secondary">자리 비운 친구 차례 넘기기</button
@@ -194,6 +198,7 @@
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
-    <script src="ghost-client.js?v=20261023-lobby-look"></script>
+    <script src="sound.js"></script>
+    <script src="ghost-client.js?v=20261023-sound"></script>
   </body>
 </html>

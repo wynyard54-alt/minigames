@@ -150,7 +150,10 @@
     put("mg:name", $("name").value);
     join({ code, name: $("name").value });
   };
-  $("ready").onclick = () => command("ready");
+  $("ready").onclick = () => {
+    sfx("beep");
+    command("ready");
+  };
   $("start").onclick = () => command("start");
   $("close").onclick = () => {
     if (confirm("방을 닫고 게임 선택으로 돌아갈까요?")) command("close");
@@ -197,9 +200,64 @@
     update();
   }
   socket.on("update", (r) => {
+    const before = room?.game;
     room = r;
     render();
+    soundFromChange(before, r.game);
   });
+
+  // ---------- 효과음 ----------
+  // 폰은 화면을 한 번 터치해야 소리를 낼 수 있다
+  const sfx = (name, vol, gap) => window.GameSound && GameSound.play(name, vol, gap);
+  const later = (ms, fn) => setTimeout(fn, ms);
+  ["pointerdown", "keydown"].forEach((ev) =>
+    addEventListener(ev, () => window.GameSound && GameSound.unlock(), { capture: true }),
+  );
+  const renderMute = () => text("muteBtn", window.GameSound && GameSound.isMuted() ? "🔇" : "🔊");
+  $("muteBtn").onclick = () => {
+    GameSound.setMuted(!GameSound.isMuted());
+    renderMute();
+  };
+  renderMute();
+  // 두 칸 사이의 가장 짧은 칸 수 (말 이동 '톡톡' 횟수)
+  function hops(from, to) {
+    const dist = { [from]: 0 },
+      q = [from];
+    while (q.length) {
+      const n = q.shift();
+      if (n === to) return dist[n];
+      for (const m of D.nodes[n].links) if (dist[m] === undefined) (dist[m] = dist[n] + 1), q.push(m);
+    }
+    return 1;
+  }
+  // 서버 상태가 바뀐 내용을 보고 소리를 낸다 (모든 기기에서 같은 순간에)
+  function soundFromChange(a, b) {
+    if (!a || !b) return;
+    const rolled = b.roll !== null && (a.roll !== b.roll || a.turn !== b.turn || a.round !== b.round);
+    const battled = b.battle && JSON.stringify(a.battle) !== JSON.stringify(b.battle);
+    // 주사위·카드 공개 연출이 끝날 즈음 결과 소리를 낸다
+    const after = rolled ? 1150 : battled ? (b.battle.extra ? 1900 : 1000) : 0;
+    const darkNew = b.regions.some((r, i) => r.dark && !a.regions[i].dark);
+    const mobsNew = b.regions.reduce((s, r) => s + r.mobs.length, 0) > a.regions.reduce((s, r) => s + r.mobs.length, 0);
+    if (rolled && b.card === 30) later(after - 300, () => sfx("cardFlip"));
+    if (darkNew) later(after, () => sfx("darkrai"));
+    else if (mobsNew && rolled) later(after, () => sfx("mobAppear"));
+    if (battled) later(after, () => sfx(b.battle.success ? "rescue" : "miss"));
+    // 말 이동: 옮긴 칸 수만큼 (최대 6번) '톡톡'
+    b.players.forEach((p, i) => {
+      const q = a.players[i];
+      if (!q || q.id !== p.id) return;
+      if (q.node !== p.node) {
+        const n = Math.max(1, Math.min(7, hops(q.node, p.node)));
+        for (let k = 0; k < n; k++) later(k * 110, () => sfx("step", 0.9));
+      }
+      if (!q.carry && p.carry) later(150, () => sfx("pickup"));
+      if (q.carry && !p.carry) later(150, () => sfx(b.returned > a.returned ? "deliver" : "drop"));
+      if ((p.stage || 0) > (q.stage || 0)) later(after + 700, () => sfx("evolve"));
+    });
+    if (!["won", "lost"].includes(a.phase) && ["won", "lost"].includes(b.phase))
+      later(after + 500, () => sfx(b.phase === "won" ? "win" : "lose"));
+  }
   function render() {
     if (!room) return;
     show("join", false);
@@ -218,8 +276,10 @@
       selectedHelper = null;
       closeOutcome();
       show("turnToast", false);
+      $("rulesLobby").append($("rulesBox")); // 기다리는 동안 읽을 수 있게 대기실에도
       return lobby();
     }
+    $("rulesHome").after($("rulesBox"));
     game();
   }
   function lobby() {
@@ -278,7 +338,10 @@
       D.partners.forEach((p, i) => {
         const b = button(
           p.names[0],
-          () => command("partner", { partner: i }),
+          () => {
+            sfx("select");
+            command("partner", { partner: i });
+          },
           room.players.some((o) => o.id !== me?.id && o.partner === i),
         );
         b.className = "choice" + (mine?.partner === i ? " selected" : "");
@@ -799,8 +862,10 @@
       .querySelectorAll(".die-cube")
       .forEach((el) => el.classList.add("rolling"));
     show("reveal", true);
+    sfx("diceRoll");
     await wait(900);
     if (!current()) return;
+    sfx("diceLand");
     if (g.battle?.extra) {
       const extra = g.battle.extra,
         owner = g.battle.participants.find((o) => o.id === extra.id);
@@ -811,14 +876,17 @@
       const replacement = makeDie(combatSymbol(extra.value), owner);
       replacement.querySelector(".die-cube").classList.add("rolling");
       die.replaceWith(replacement);
+      sfx("diceRoll");
       await wait(900);
       if (!current()) return;
+      sfx("diceLand");
     }
     if (withCard) {
       const im = image("card-" + g.card + ".webp", "출현 카드", "reveal-card");
       $("revealCard").append(im);
       await Promise.race([im.decode().catch(() => {}), wait(500)]);
       if (!current()) return;
+      sfx("cardFlip");
       await im
         .animate(
           [
@@ -886,6 +954,7 @@
     clearTimeout(turnToastTimer);
     show("turnToast", false);
     if (mine && !host) {
+      sfx("myTurn");
       show("turnToast", true);
       turnToastTimer = setTimeout(() => show("turnToast", false), 1800);
     }

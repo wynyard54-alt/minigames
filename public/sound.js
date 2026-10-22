@@ -106,6 +106,73 @@ window.GameSound = (() => {
     beep: (v) => tone('sine', 660, 660, 0.12, 0.2 * v),
     go: (v) => tone('sine', 990, 990, 0.35, 0.25 * v),
     heal: (v) => tone('sine', 520, 780, 0.25, 0.05 * v),
+    // ---- 고스트헌터 ----
+    // 주사위 굴러가는 '달그락': 짧은 딸깍 소리를 점점 느리게
+    diceRoll: (v) => {
+      let t = 0;
+      for (let i = 0; i < 9; i++) {
+        hiss('bandpass', 2200 + Math.random() * 1800, 1800, 0.035, 0.28 * v, t, 3);
+        tone('square', 300 + Math.random() * 300, 200, 0.02, 0.05 * v, t);
+        t += 0.05 + i * 0.012;
+      }
+    },
+    diceLand: (v) => {
+      tone('sine', 180, 90, 0.12, 0.35 * v);
+      hiss('bandpass', 1800, 1200, 0.05, 0.3 * v, 0, 2);
+    },
+    // 카드 넘기는 '휙-착'
+    cardFlip: (v) => {
+      hiss('bandpass', 900, 4000, 0.16, 0.25 * v, 0, 1.2);
+      hiss('highpass', 3000, 3000, 0.03, 0.3 * v, 0.17);
+    },
+    // 말이 한 칸 움직일 때 '톡'
+    step: (v) => {
+      tone('triangle', 520, 380, 0.06, 0.16 * v);
+      hiss('lowpass', 1200, 600, 0.04, 0.08 * v);
+    },
+    // 폭주 포켓몬 등장: 으스스하게 흔들리는 소리
+    mobAppear: (v) => {
+      tone('sine', 420, 260, 0.45, 0.14 * v);
+      tone('sine', 436, 250, 0.45, 0.1 * v, 0.03);
+      tone('triangle', 210, 130, 0.5, 0.08 * v, 0.1);
+    },
+    // 다크라이 출현: 낮고 무거운 소리
+    darkrai: (v) => {
+      tone('sawtooth', 110, 55, 1.1, 0.16 * v);
+      tone('sawtooth', 116, 52, 1.1, 0.1 * v, 0.05);
+      hiss('lowpass', 500, 80, 1.0, 0.25 * v);
+      tone('sine', 880, 440, 0.6, 0.05 * v, 0.25);
+    },
+    // 구조 성공: 반짝이며 올라가는 소리
+    rescue: (v) => {
+      tone('square', 300, 900, 0.08, 0.06 * v);
+      [784, 988, 1175, 1568].forEach((f, i) => tone('sine', f, f, 0.16, 0.18 * v, 0.08 + i * 0.07));
+    },
+    // 빗나감: '뿅' 하고 내려감
+    miss: (v) => {
+      tone('square', 260, 110, 0.25, 0.09 * v);
+      tone('triangle', 200, 90, 0.3, 0.12 * v, 0.05);
+    },
+    pickup: (v) => {
+      [1047, 1319, 1568].forEach((f, i) => tone('triangle', f, f, 0.14, 0.15 * v, i * 0.06));
+      hiss('highpass', 6000, 6000, 0.2, 0.05 * v, 0.05);
+    },
+    drop: (v) => tone('triangle', 660, 330, 0.15, 0.15 * v),
+    // 봉인조각 반납: 종소리 화음
+    deliver: (v) => {
+      [523, 659, 784].forEach((f) => tone('sine', f, f, 0.9, 0.12 * v));
+      tone('sine', 1568, 1568, 0.6, 0.05 * v, 0.05);
+    },
+    // 진화: 아래에서 위로 쭉 올라가는 소리
+    evolve: (v) => {
+      tone('sine', 300, 1400, 0.7, 0.12 * v);
+      [1047, 1319, 1568, 2093].forEach((f, i) => tone('triangle', f, f, 0.14, 0.12 * v, 0.7 + i * 0.08));
+    },
+    myTurn: (v) => {
+      tone('sine', 660, 660, 0.12, 0.18 * v);
+      tone('sine', 990, 990, 0.2, 0.18 * v, 0.12);
+    },
+    select: (v) => tone('triangle', 880, 1100, 0.06, 0.15 * v),
     win: (v) => [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.18, 0.22 * v, i * 0.12)),
     lose: (v) => [392, 330, 262].forEach((f, i) => tone('triangle', f, f, 0.25, 0.2 * v, i * 0.18)),
   };
