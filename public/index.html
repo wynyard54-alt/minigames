@@ -145,8 +145,14 @@
     <div id="winner" class="winner"></div>
     <div id="finalScore" class="final-score"></div>
     <div id="mvp" class="mvp"></div>
-    <div class="hint small" id="pointsHint">개인 점수 = 킬 +3 · 어시 +1 · 데스 −2 (최저 0점)</div>
-    <table id="board" class="board"></table>
+    <div class="result-main">
+      <div id="podium" class="podium"></div>
+      <div>
+        <div class="hint small" id="pointsHint">개인 점수 = 킬 +3 · 어시 +1 · 데스 −2 (최저 0점)</div>
+        <table id="board" class="board"></table>
+      </div>
+    </div>
+    <div id="confetti" class="confetti" aria-hidden="true"></div>
     <div class="row">
       <button id="lobbyBtn" class="btn ghost">대기실로</button>
       <button id="againBtn" class="btn big">한 판 더!</button>

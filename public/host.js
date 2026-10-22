@@ -559,9 +559,34 @@
     $('ahLevel').textContent = `${Math.min(5, Math.floor(elapsed / 20) + 1)}단계`;
   }, 200);
 
+  // 1·2·3등 시상대: 가운데 1등(가장 높게), 왼쪽 2등, 오른쪽 3등. 캐릭터가 앞을 보고 올라선다
+  function renderPodium(list) {
+    const medal = ['🥇', '🥈', '🥉'];
+    $('podium').innerHTML = [1, 0, 2]
+      .filter((i) => list[i])
+      .map((i) => {
+        const p = list[i];
+        return (
+          `<div class="pod p${i + 1}"><span class="fighter front ${p.team === 'blue' ? 'blue' : 'red'}"></span>` +
+          `<b>${esc(p.name)}</b><small>${p.sub}</small><div class="step">${medal[i]}</div></div>`
+        );
+      })
+      .join('');
+    // 축하 꽃가루
+    const box = $('confetti');
+    const colors = ['#ffd84d', '#ff4d5e', '#3d8bff', '#4cdb6a', '#c58cff', '#fff'];
+    box.innerHTML = Array.from({ length: 60 }, (_, i) => {
+      const s = `left:${Math.random() * 100}%;background:${colors[i % colors.length]};animation-delay:${(Math.random() * 1.2).toFixed(2)}s;animation-duration:${(2.4 + Math.random() * 1.8).toFixed(2)}s;transform:rotate(${Math.round(Math.random() * 360)}deg)`;
+      return `<i style="${s}"></i>`;
+    }).join('');
+    clearTimeout(renderPodium.t);
+    renderPodium.t = setTimeout(() => (box.innerHTML = ''), 5000);
+  }
+
   function renderResult(r) {
     $('pointsHint').classList.toggle('hidden', r.mode === 'arena');
     if (r.mode === 'arena') return renderArenaResult(r);
+    renderPodium(r.players.slice(0, 3).map((p) => ({ name: p.name, team: p.team, sub: `${p.points}점 · ${p.kills}킬` })));
     const w = $('winner');
     if (r.winner === 'draw') {
       w.textContent = '무승부!';
@@ -588,14 +613,15 @@
 
   // 배틀 아레나 결과: 1등 크게, 2·3등은 그 아래, 전체 순위표
   function renderArenaResult(r) {
-    const [first, second, third] = r.players;
+    const [first] = r.players;
     const w = $('winner');
     w.style.color = '#ffd84d';
     w.textContent = first ? `🏆 ${first.name}` : '경기 끝!';
     $('finalScore').textContent = first ? `${first.score}점` : '';
-    $('mvp').innerHTML = [second && `🥈 ${esc(second.name)} ${second.score}점`, third && `🥉 ${esc(third.name)} ${third.score}점`]
-      .filter(Boolean)
-      .join(' &nbsp; ');
+    $('mvp').innerHTML = '';
+    // 아레나는 대기실 팀 색 그대로 캐릭터를 보여 준다
+    const teamOf = (id) => (((lobby && lobby.players) || []).find((p) => p.id === id) || {}).team;
+    renderPodium(r.players.slice(0, 3).map((p) => ({ name: p.name, team: teamOf(p.id), sub: `${p.score}점 · ${p.survived ? '생존' : '탈락'}` })));
     $('board').innerHTML =
       '<tr><th>순위</th><th>이름</th><th>점수</th><th>처치</th><th>결과</th></tr>' +
       r.players
