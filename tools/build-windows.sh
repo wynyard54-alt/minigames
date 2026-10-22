@@ -21,7 +21,7 @@ fi
 unzip -q -j -o "$CACHE/$ZIP" "node-v$NODE_VERSION-win-x64/node.exe" -d "$WORK/node"
 
 # 2) 게임 파일과 실행에 필요한 부품만 (개발용 부품 제외)
-cp -r "$ROOT/server.js" "$ROOT/game.js" "$ROOT/package.json" "$ROOT/package-lock.json" "$ROOT/public" "$WORK/app/"
+cp -r "$ROOT/server.js" "$ROOT/game.js" "$ROOT/ghost.js" "$ROOT/package.json" "$ROOT/package-lock.json" "$ROOT/public" "$WORK/app/"
 (cd "$WORK/app" && npm ci --omit=dev --no-audit --no-fund --ignore-scripts > /dev/null)
 
 # 3) 실행 파일과 안내문
