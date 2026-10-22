@@ -10,7 +10,9 @@
     me = null,
     mobs = {},
     busy = false,
-    lastRoll = "";
+    presentationKey = null,
+    revealVersion = 0,
+    revealing = false;
   const get = (k) => {
     try {
       return JSON.parse(localStorage.getItem(k));
@@ -96,6 +98,8 @@
   socket.on("closed", (s) => {
     text("error", s);
     room = null;
+    cancelReveal();
+    document.body.classList.remove("playing");
     show("game", false);
     show("lobby", false);
     show("join", !host);
@@ -166,7 +170,13 @@
     show("lobby", !room.game);
     show("game", !!room.game);
     text("roomCode", room.code);
-    if (!room.game) return lobby();
+    document.body.classList.toggle("playing", !!room.game);
+    document.body.classList.toggle("student", !host);
+    if (!room.game) {
+      cancelReveal();
+      presentationKey = null;
+      return lobby();
+    }
     game();
   }
   function lobby() {
@@ -248,7 +258,12 @@
         ? "봉인조각 회수 불가 · 탐사 종료"
         : "다크라이가 6곳을 장악했어요",
     };
-    text("phaseTitle", titles[g.phase]);
+    text(
+      "phaseTitle",
+      (!host && !ended ? (mine ? "내 차례 · " : p.name + "의 차례 · ") : "") +
+        titles[g.phase],
+    );
+    $("turnPanel").classList.toggle("my-turn", mine && !ended);
     $("skip").disabled = ended;
     const instructions = {
       roll: "주사위를 던지면 출현 카드를 먼저 확인합니다.",
@@ -271,61 +286,17 @@
       (mine || host || ended ? "" : p.name + "의 행동을 기다리는 중. ") +
         instructions[g.phase],
     );
-    $("dice").replaceChildren();
-    const stamp = g.round + ":" + g.turn + ":" + g.roll + ":" + g.dice.join();
-    $("dice").title = "✦ 일반 구조 성공 · ◆ 다크라이 해결 성공 · — 빗나감";
-    const vals = g.dice.length
-      ? g.dice.map((v) => (v < 2 ? "✦" : v === 2 ? "◆" : "—"))
-      : g.roll
-        ? [g.roll]
-        : [];
-    vals.forEach((v) => {
-      const d = document.createElement("div");
-      d.className = "die-space";
-      d.setAttribute("aria-label", "주사위 결과 " + v);
-      const cube = document.createElement("div");
-      cube.className = "die-cube" + (stamp !== lastRoll ? " rolling" : "");
-      let faces;
-      if (typeof v === "number") {
-        const rest = [1, 2, 3, 4, 5, 6].filter((n) => n !== v && n !== 7 - v);
-        faces = [
-          v,
-          7 - v,
-          rest[0],
-          7 - rest[0],
-          rest.find((n) => n !== rest[0] && n !== 7 - rest[0]),
-          0,
-        ];
-        faces[5] = 7 - faces[4];
-      } else {
-        const rest = ["✦", "✦", "◆", "—", "—", "—"];
-        rest.splice(rest.indexOf(v), 1);
-        faces = [v, ...rest];
-      }
-      faces.forEach((value, index) => {
-        const face = document.createElement("span");
-        face.className = "die-face face-" + index;
-        face.textContent = value;
-        if (value === "◆") face.style.color = "#ba274d";
-        if (value === "✦") face.style.color = "#2476a8";
-        cube.append(face);
-      });
-      d.append(cube);
-      $("dice").append(d);
-    });
-    lastRoll = stamp;
-    $("card").replaceChildren();
-    if (g.card !== null && g.phase === "card") {
-      $("card").append(image("card-" + g.card + ".webp", "출현 카드"));
-      const cap = document.createElement("p");
-      cap.textContent =
-        g.card === 30
-          ? "다시 섞기 · 추가 출현 없음"
-          : D.regions[Math.floor(g.card / 3)].name +
-            " · 폭주 " +
-            D.regions[Math.floor(g.card / 3)].mobs[g.card % 3];
-      $("card").append(cap);
-    }
+    const own = g.players.find((o) => o.id === me?.id);
+    text(
+      "myCarry",
+      own
+        ? own.carry
+          ? "◈ 봉인조각 " + own.carry + "번 운반 중"
+          : "운반 중인 조각 없음"
+        : "",
+    );
+    $("myCarry").classList.toggle("loaded", !!own?.carry);
+    renderTable(g);
     $("actions").replaceChildren();
     const add = (label, type, extra = {}) =>
       $("actions").append(button(label, () => command(type, extra), !mine));
@@ -363,7 +334,11 @@
       if (p.node === "camp" && p.carry) add("봉인조각 반납", "deliver");
     }
     if (["act", "end"].includes(g.phase)) add("차례 마치기 →", "end");
-    drawBoard(g, mine);
+    if (revealing)
+      $("actions")
+        .querySelectorAll("button,select")
+        .forEach((el) => (el.disabled = true));
+    drawBoard(g, mine && !revealing);
     $("team").replaceChildren();
     g.players.forEach((o, i) => {
       const el = document.createElement("div");
@@ -382,6 +357,7 @@
         "마리" +
         (o.carry ? " · 조각 " + o.carry + "번" : "") +
         (o.rescues >= 6 ? " · 이동 +1" : "");
+      sm.classList.toggle("loaded", !!o.carry);
       d.append(sm);
       el.append(d);
       $("team").append(el);
@@ -404,40 +380,187 @@
         $("log").append(li);
       });
   }
+  function cancelReveal() {
+    revealVersion++;
+    revealing = false;
+    show("reveal", false);
+    $("tableTray").classList.remove("revealing");
+    $("revealDice").replaceChildren();
+    $("revealCard").replaceChildren();
+  }
+  function renderTable(g) {
+    const key = [g.round, g.turn, g.roll, g.card, g.dice.join(",")].join(":");
+    if (key === presentationKey) return;
+    const animate = presentationKey !== null && g.roll !== null;
+    presentationKey = key;
+    cancelReveal();
+    $("dice").replaceChildren();
+    $("dice").title = "✦ 일반 구조 성공 · ◆ 다크라이 해결 성공 · — 빗나감";
+    const vals = g.dice.length
+      ? g.dice.map((v) => (v < 2 ? "✦" : v === 2 ? "◆" : "—"))
+      : g.roll
+        ? [g.roll]
+        : [];
+    vals.forEach((v) => {
+      const d = document.createElement("div");
+      d.className = "die-space";
+      d.setAttribute("aria-label", "주사위 결과 " + v);
+      const cube = document.createElement("div");
+      cube.className = "die-cube";
+      cube.setAttribute("aria-hidden", "true");
+      let faces;
+      if (typeof v === "number") {
+        const rest = [1, 2, 3, 4, 5, 6].filter((n) => n !== v && n !== 7 - v);
+        faces = [
+          v,
+          7 - v,
+          rest[0],
+          7 - rest[0],
+          rest.find((n) => n !== rest[0] && n !== 7 - rest[0]),
+          0,
+        ];
+        faces[5] = 7 - faces[4];
+      } else {
+        const rest = ["✦", "✦", "◆", "—", "—", "—"];
+        rest.splice(rest.indexOf(v), 1);
+        faces = [v, ...rest];
+      }
+      faces.forEach((value, index) => {
+        const face = document.createElement("span");
+        face.className = "die-face face-" + index;
+        face.textContent = value;
+        if (value === "◆") face.style.color = "#ba274d";
+        if (value === "✦") face.style.color = "#2476a8";
+        cube.append(face);
+      });
+      d.append(cube);
+      $("dice").append(d);
+    });
+
+    if (!g.roll) $("dice").textContent = "주사위를 기다리는 중";
+    $("card").replaceChildren();
+    const face = g.card !== null;
+    $("card").append(
+      image(
+        face ? "card-" + g.card + ".webp" : "card-back.webp",
+        face ? "출현 카드" : "출현 카드 뒷면",
+        "card-mini",
+      ),
+    );
+    const caption = document.createElement("p");
+    caption.textContent = face
+      ? g.card === 30
+        ? "다시 섞기 · 추가 출현 없음"
+        : D.regions[Math.floor(g.card / 3)].name +
+          " · 폭주 " +
+          D.regions[Math.floor(g.card / 3)].mobs[g.card % 3]
+      : g.roll === 6
+        ? "6! 출현 카드 없음"
+        : "주사위를 던지면 공개돼요";
+    $("card").append(caption);
+    if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+      playReveal(g, face && !g.dice.length);
+  }
+  async function flyTo(el, target) {
+    const from = el.getBoundingClientRect(),
+      to = target.getBoundingClientRect();
+    if (!from.width || !to.width) return;
+    const animation = el.animate(
+      [
+        { transform: "translate(0,0) scale(1)" },
+        {
+          transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})`,
+        },
+      ],
+      { duration: 480, easing: "cubic-bezier(.3,.05,.2,1)", fill: "forwards" },
+    );
+    await animation.finished.catch(() => {});
+  }
+  async function playReveal(g, withCard) {
+    const version = ++revealVersion;
+    const current = () => version === revealVersion;
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    revealing = true;
+    if (!host && g.players[g.turn].id === me?.id)
+      $("board").scrollIntoView({ block: "start", behavior: "smooth" });
+    $("tableTray").classList.add("revealing");
+    $("revealDice").replaceChildren(
+      ...Array.from($("dice").children, (el) => el.cloneNode(true)),
+    );
+    $("revealDice")
+      .querySelectorAll(".die-cube")
+      .forEach((el) => el.classList.add("rolling"));
+    show("reveal", true);
+    await wait(900);
+    if (!current()) return;
+    if (withCard) {
+      const im = image("card-" + g.card + ".webp", "출현 카드", "reveal-card");
+      $("revealCard").append(im);
+      await im.animate(
+        [
+          { opacity: 0, transform: "scale(.6) rotateY(-55deg)" },
+          { opacity: 1, transform: "scale(1) rotateY(0)" },
+        ],
+        { duration: 300, easing: "cubic-bezier(.2,.9,.25,1.2)" },
+      ).finished;
+      if (!current()) return;
+    }
+    await flyTo($("revealDice"), $("dice"));
+    if (!current()) return;
+    if (withCard) {
+      await wait(600);
+      if (!current()) return;
+      await flyTo(
+        $("revealCard").firstElementChild,
+        $("card").querySelector("img"),
+      );
+      if (!current()) return;
+    }
+    cancelReveal();
+    render();
+  }
+  function seal(number) {
+    const el = document.createElement("span");
+    el.className = "seal-token";
+    el.setAttribute("role", "img");
+    el.setAttribute(
+      "aria-label",
+      number ? "봉인조각 " + number + "번" : "미확인 봉인조각",
+    );
+    const ns = "http://www.w3.org/2000/svg",
+      svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 28");
+    svg.setAttribute("aria-hidden", "true");
+    [
+      ["12,1 23,10 17,25 7,25 1,10", "#528c86"],
+      ["12,1 17,10 7,10", "#b9d4b2"],
+      ["1,10 7,10 12,25 7,25", "#8fb9a3"],
+      ["7,10 17,10 12,25", "#71b2a7"],
+    ].forEach(([points, fill]) => {
+      const p = document.createElementNS(ns, "polygon");
+      p.setAttribute("points", points);
+      p.setAttribute("fill", fill);
+      svg.append(p);
+    });
+    el.append(svg);
+    const label = document.createElement("b");
+    label.textContent = number ?? "?";
+    el.append(label);
+    return el;
+  }
   function drawBoard(g, mine) {
     $("board").classList.toggle("moving", g.phase === "move");
     $("nodes").replaceChildren();
     $("pieces").replaceChildren();
-    $("roads").replaceChildren();
     Object.values(D.nodes).forEach((n) => {
-      n.links.forEach((to) => {
-        if (n.id > to) return;
-        const other = D.nodes[to],
-          l = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        for (const [k, v] of Object.entries({
-          x1: n.x,
-          y1: n.y,
-          x2: other.x,
-          y2: other.y,
-        }))
-          l.setAttribute(k, v);
-        $("roads").append(l);
-      });
       const available =
         mine && g.phase === "move" && Object.hasOwn(g.reachable, n.id);
-      const b = button(
-        n.id === "camp"
-          ? "캠프"
-          : n.id.startsWith("r")
-            ? n.id.slice(1) + " " + n.name
-            : "",
-        () => command("move", { node: n.id }),
-        !available,
-      );
+      const b = button("", () => command("move", { node: n.id }), !available);
       b.className =
         "node" +
         (n.id.startsWith("r") || n.id === "camp" ? " region" : "") +
         (available ? " available" : "");
+      b.dataset.node = n.id;
       b.style.left = n.x + "%";
       b.style.top = n.y + "%";
       b.title = n.name + (available ? " · " + g.reachable[n.id] + "칸" : "");
@@ -448,23 +571,18 @@
       const n = D.nodes[r.id];
       const el = document.createElement("div");
       el.className = "cluster";
-      el.style.left = n.x + "%";
-      el.style.top = n.y + 3 + "%";
+      el.style.left = n.encounterX + "%";
+      el.style.top = n.encounterY + "%";
       r.mobs.forEach((name) => {
         if (mobs[name]) el.append(image(mobs[name], name, "mob"));
       });
       if (r.dark) el.append(image("darkrai.webp", "다크라이", "darkrai"));
       if (r.fragment || r.hidden) {
-        const badge = document.createElement("span");
-        badge.className = "fragment";
-        badge.append(
-          image(
-            r.hidden ? "seal-back.webp" : "seal-" + r.fragment + ".webp",
-            r.hidden ? "미확인 봉인조각" : "봉인조각 " + r.fragment,
-          ),
-        );
-        if (!r.hidden) badge.append(document.createTextNode(r.fragment));
-        el.append(badge);
+        const gem = seal(r.hidden ? null : r.fragment);
+        gem.classList.add("map-seal");
+        gem.style.left = n.sealX + "%";
+        gem.style.top = n.sealY + "%";
+        $("pieces").append(gem);
       }
       $("pieces").append(el);
     });
@@ -472,16 +590,35 @@
       const n = D.nodes[p.node];
       const group = g.players.filter((o) => o.node === p.node),
         j = group.findIndex((o) => o.id === p.id);
-      const im = image(
-        pawn(p),
-        p.name,
-        "pawn" + (i === g.turn ? " active" : ""),
-      );
-      im.style.left = n.x + (j - (group.length - 1) / 2) * 4 + "%";
-      im.style.top = n.y + 2 + (j % 2) * 3 + "%";
-      $("pieces").append(im);
+      const piece = document.createElement("div");
+      piece.className = "player-piece" + (i === g.turn ? " active" : "");
+      piece.dataset.player = p.id;
+      const size = n.id.startsWith("r") || n.id === "camp" ? 11 : 8;
+      piece.style.width = size + "%";
+      piece.style.height = size + "%";
+      const x =
+        (n.pawnX ?? n.x) + ((j % 3) - (Math.min(group.length, 3) - 1) / 2) * 4;
+      const y = (n.pawnY ?? n.y) + Math.floor(j / 3) * 2.5;
+      piece.style.left =
+        Math.max(size / 2 + 0.5, Math.min(100 - size / 2 - 0.5, x)) + "%";
+      piece.style.top = Math.min(100 - size * 0.15 - 0.5, y) + "%";
+      piece.append(image(pawn(p), p.name, "pawn"));
+      if (p.carry) {
+        const badge = seal(p.carry);
+        badge.classList.add("carry-badge");
+        badge.title = p.name + " · 봉인조각 " + p.carry + "번 운반 중";
+        piece.append(badge);
+      }
+      $("pieces").append(piece);
     });
   }
+  if (window.ResizeObserver)
+    new ResizeObserver((entries) => {
+      document.body.style.setProperty(
+        "--turn-height",
+        entries[0].target.getBoundingClientRect().height + 16 + "px",
+      );
+    }).observe($("turnPanel"));
   fetch(A + "mobs.json")
     .then((r) => r.json())
     .then((d) => {

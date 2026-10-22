@@ -121,6 +121,29 @@ function run() {
   assert.equal(seen.size, Object.keys(D.nodes).length);
   assert(D.nodes.r1.links.includes("r3"));
 
+  // 지도에 그려진 칸끼리만 이동하며, 방 입구는 실제 문에 연결된다.
+  const corridor = Object.values(D.nodes).filter(
+    (n) => n.id !== "camp" && !n.id.startsWith("r"),
+  );
+  assert.equal(corridor.length, 35);
+  for (const n of corridor)
+    for (const id of n.links) {
+      const next = D.nodes[id];
+      if (id !== "camp" && !id.startsWith("r"))
+        assert(
+          (Math.hypot(n.x - next.x, n.y - next.y) * 1254) / 100 < 85,
+          "복도 사이 순간이동 연결 금지",
+        );
+    }
+  assert(D.nodes.r4.links.includes("u3"));
+  assert(D.nodes.r5.links.includes("u4"));
+  assert(D.nodes.r6.links.includes("v5"));
+  assert(D.nodes.r10.links.includes("v8"));
+  assert(!D.nodes.r1.links.includes("t0"), "문 없는 화산 벽 통과 금지");
+  assert(
+    D.nodes.v4.x < D.nodes.v5.x && D.nodes.v4.y === D.nodes.v5.y,
+    "숲 입구에서 대로가 옆으로 꺾임",
+  );
   // 실제 행동 순서로 여덟 조각을 차례대로 운반하고 전원이 귀환한다.
   g = new Expedition(team(), () => 0.99);
   function travel(target) {

@@ -64,21 +64,31 @@
             class="map"
             src="assets/ghost/map.webp"
             alt="화산 기슭, 사막, 동굴, 돌산, 설원, 숲, 언덕, 바다, 강 하구, 풀밭 탐사 지도"
-          /><svg id="roads" viewBox="0 0 100 100" aria-hidden="true"></svg>
+          />
           <div id="nodes"></div>
           <div id="pieces"></div>
         </div>
         <p class="hint">
-          빛나는 칸을 눌러 이동 · 지역 사이 연결선은 문을 통한 지름길입니다.
+          빛나는 이동 칸이나 지역 번호를 눌러 이동하세요. 지역 사이 문으로
+          지름길을 이용할 수 있어요.
         </p>
+        <div id="tableTray" class="table-tray">
+          <section id="cardSlot" class="tray-slot">
+            <h2>출현 카드</h2>
+            <div id="card"></div>
+          </section>
+          <section id="diceSlot" class="tray-slot">
+            <h2>주사위</h2>
+            <div id="dice" aria-live="polite"></div>
+            <p class="hint">✦ 일반 구조 · ◆ 다크라이</p>
+          </section>
+        </div>
       </section>
       <aside>
-        <section class="panel">
+        <section id="turnPanel" class="panel">
+          <div id="myCarry" class="my-carry"></div>
           <h2 id="phaseTitle"></h2>
           <p id="instruction"></p>
-          <div id="dice" aria-live="polite"></div>
-          <p class="hint">배틀 주사위: ✦ 일반 구조 · ◆ 다크라이 · — 빗나감</p>
-          <div id="card"></div>
           <div id="actions"></div>
         </section>
         <section class="panel">
@@ -135,6 +145,12 @@
         </div>
       </aside>
     </main>
+    <div id="reveal" class="hidden" aria-hidden="true">
+      <div class="reveal-stage">
+        <div id="revealDice"></div>
+        <div id="revealCard"></div>
+      </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
     <script src="ghost-client.js"></script>
