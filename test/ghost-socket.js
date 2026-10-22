@@ -1,7 +1,7 @@
 // 실제 소켓으로 권한·재접속·인원·기존 게임 격리를 확인한다.
 const assert = require("assert");
 const { io } = require("socket.io-client");
-const { server } = require("../server");
+const { server, ghostRooms } = require("../server");
 const clients = [];
 const ack = (s, event, data) =>
   new Promise((resolve, reject) =>
@@ -32,6 +32,18 @@ const connect = (url) =>
     assert((await ack(soloPlayer, "command", { type: "ready" })).ok);
     assert((await ack(soloHost, "command", { type: "start" })).ok);
     assert((await ack(soloPlayer, "command", { type: "roll" })).ok);
+    assert(
+      (await ack(soloPlayer, "command", { type: "reset" })).error,
+      "학생은 진행 중인 탐사를 초기화할 수 없음",
+    );
+    ghostRooms.get(soloRoom.code).game.phase = "lost";
+    assert((await ack(soloPlayer, "command", { type: "reset" })).ok);
+    assert.equal(ghostRooms.get(soloRoom.code).game, null);
+    assert.equal(ghostRooms.get(soloRoom.code).players[0].ready, false);
+    await ack(soloPlayer, "command", { type: "ready" });
+    await ack(soloHost, "command", { type: "start" });
+    ghostRooms.get(soloRoom.code).game.phase = "won";
+    assert((await ack(soloPlayer, "command", { type: "reset" })).ok);
     assert((await ack(soloHost, "command", { type: "close" })).ok);
     const ps = [];
     for (let i = 0; i < 6; i++) {
@@ -55,13 +67,15 @@ const connect = (url) =>
     host.on("update", (r) => (state = r));
     assert((await ack(ps[0].s, "command", { type: "roll" })).ok);
     await new Promise((r) => setTimeout(r, 20));
-    assert.equal(state.game.phase, "card");
+    assert.equal(state.game.phase, "move");
     assert.equal(state.game.players.length, 6);
     assert(state.players.every((p) => !p.key && !p.socket));
     const restored = await connect(url + "/ghost");
     assert((await ack(restored, "join", { ...ps[0].p, code: r.code })).ok);
-    assert((await ack(ps[0].s, "command", { type: "confirm" })).error);
-    assert((await ack(restored, "command", { type: "confirm" })).ok);
+    assert(
+      (await ack(ps[0].s, "command", { type: "move", node: "camp" })).error,
+    );
+    assert((await ack(restored, "command", { type: "move", node: "camp" })).ok);
     const newHost = await connect(url + "/ghost");
     assert(
       (await ack(newHost, "join", { code: r.code, key: r.key, host: true })).ok,

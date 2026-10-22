@@ -19,10 +19,8 @@ function run() {
   assert.equal(JSON.stringify(g.snapshot()), before);
   g.deck = [0];
   g.action("a", { type: "roll" });
-  assert.equal(g.phase, "card");
+  assert.equal(g.phase, "move");
   assert.equal(g.regions[0].mobs.length, 1);
-  assert(g.action("a", { type: "move", node: "r1" }));
-  g.action("a", { type: "confirm" });
   assert(g.action("a", { type: "move", node: "r1" }));
   assert.equal(g.active.node, "camp");
   const dest = Object.keys(g.reachable()).find((k) => k !== "camp");
@@ -80,10 +78,42 @@ function run() {
   g.active.node = "r8";
   g.regions[7].mobs = ["갸라도스"];
   g.action("a", { type: "battle" });
-  assert.equal(g.dice.length, 2);
+  assert.equal(g.dice.length, 1);
+  assert.equal(g.battle.participants.length, 1);
+  assert.equal(g.battle.extra.id, "a");
+  assert.equal(g.battle.extra.value, 5);
   assert.equal(g.phase, "end");
   assert.equal(g.regions[7].mobs.length, 1);
   assert(g.action("a", { type: "battle" }));
+  // 기본 실패 후 추가공격 성공도 동일한 한 명의 구조로 판정한다.
+  g = new Expedition(team(), () => 0.9);
+  g.phase = "act";
+  g.active.node = "r8";
+  g.regions[7].mobs = ["갸라도스"];
+  const attackRolls = [0.9, 0.1];
+  g.rng = () => attackRolls.shift();
+  g.action("a", { type: "battle" });
+  assert.deepEqual(g.dice, [5]);
+  assert.equal(g.battle.extra.value, 0);
+  assert(g.battle.success);
+  assert.equal(g.active.rescues, 1);
+  assert.equal(g.regions[7].mobs.length, 0);
+  // 두 명 협동에서도 각자 한 개, 추가공격은 기존 소유자에게만 붙는다.
+  g = new Expedition(team(), () => 0.9);
+  g.phase = "act";
+  g.active.node = "r8";
+  g.players[1].node = "r8";
+  g.regions[7].mobs = ["갸라도스"];
+  g.action("a", { type: "battle" });
+  assert.equal(g.dice.length, 2);
+  assert.deepEqual(
+    g.battle.participants.map((p) => p.id),
+    ["a", "b"],
+  );
+  assert.equal(g.battle.extra.id, "a");
+  g.next();
+  assert.equal(g.battle, null);
+  assert.equal(g.dice.length, 0);
   // 다크라이 여섯 곳 패배, 조각 순서와 전원 귀환 승리.
   g = new Expedition(team(), () => 0.1);
   for (let i = 0; i < 5; i++) {
@@ -148,7 +178,6 @@ function run() {
   g = new Expedition(team(), () => 0.99);
   function travel(target) {
     g.action(g.active.id, { type: "roll" });
-    g.action(g.active.id, { type: "confirm" });
     const distances = { [target]: 0 },
       todo = [target];
     while (todo.length) {
@@ -194,7 +223,7 @@ function run() {
   g.regions[0].mobs = ["나인테일", "찌르꼬"];
   g.deck = [0];
   g.action("a", { type: "roll" });
-  assert.equal(g.phase, "card");
+  assert.equal(g.phase, "move");
   assert(g.regions[0].dark);
   g.phase = "act";
   g.active.node = "r1";
@@ -222,7 +251,7 @@ function run() {
   g.regions[0].mobs = ["나", "다"];
   g.deck = [0];
   g.action("a", { type: "roll" });
-  assert.equal(g.phase, "card");
+  assert.equal(g.phase, "move");
   console.log("고스트헌터 카드·이동·협동·진화·봉인·승패 검사 통과");
 }
 run();

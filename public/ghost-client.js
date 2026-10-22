@@ -12,7 +12,12 @@
     busy = false,
     presentationKey = null,
     revealVersion = 0,
-    revealing = false;
+    revealing = false,
+    previousRollKey = null,
+    previousBattleKey = null,
+    selectedHelper = null,
+    lastTurnKey = null,
+    turnToastTimer = null;
   const get = (k) => {
     try {
       return JSON.parse(localStorage.getItem(k));
@@ -38,12 +43,19 @@
   const command = (type, extra = {}) => {
     if (busy || !socket.connected) return;
     busy = true;
+    $("outcomeBack").disabled = true;
     socket.timeout(6000).emit("command", { type, ...extra }, (err, r) => {
       busy = false;
+      $("outcomeBack").disabled = !socket.connected;
       text(
         "error",
         err ? "연결이 지연되고 있어요. 다시 눌러주세요." : r.error || "",
       );
+      if ($("outcome").open)
+        text(
+          "outcomeError",
+          err ? "연결이 지연되고 있어요. 다시 눌러주세요." : r.error || "",
+        );
     });
   };
   function button(label, fn, disabled = false) {
@@ -93,11 +105,13 @@
   });
   socket.on("disconnect", () => {
     text("connection", "재연결 중…");
+    $("outcomeBack").disabled = true;
     busy = false;
   });
   socket.on("closed", (s) => {
     text("error", s);
     room = null;
+    closeOutcome();
     cancelReveal();
     document.body.classList.remove("playing");
     show("game", false);
@@ -128,6 +142,8 @@
     if (confirm("진행 중인 탐사를 끝내고 대기실로 돌아갈까요?"))
       command("reset");
   };
+  $("outcomeBack").onclick = () => command("reset");
+  $("outcome").addEventListener("cancel", (event) => event.preventDefault());
   let qrCode = "";
   async function qr(code) {
     if (qrCode === code) return;
@@ -174,7 +190,14 @@
     document.body.classList.toggle("student", !host);
     if (!room.game) {
       cancelReveal();
-      presentationKey = null;
+      presentationKey =
+        previousRollKey =
+        previousBattleKey =
+        lastTurnKey =
+          null;
+      selectedHelper = null;
+      closeOutcome();
+      show("turnToast", false);
       return lobby();
     }
     game();
@@ -297,11 +320,12 @@
     );
     $("myCarry").classList.toggle("loaded", !!own?.carry);
     renderTable(g);
+    updateTurnNotice(g, mine, ended);
     $("actions").replaceChildren();
     const add = (label, type, extra = {}) =>
       $("actions").append(button(label, () => command(type, extra), !mine));
     if (g.phase === "roll") add("🎲 이동 주사위 던지기", "roll");
-    if (g.phase === "card") add("확인 · 이동하기", "confirm");
+
     const r = g.regions.find((r) => r.id === p.node);
     if (g.phase === "act") {
       if (r?.mobs.length) {
@@ -318,6 +342,13 @@
             opt.textContent = o.name + "와 함께";
             select.append(opt);
           });
+          select.value = helpers.some((o) => o.id === selectedHelper)
+            ? selectedHelper
+            : helpers[0].id;
+          select.onchange = () => {
+            selectedHelper = select.value;
+            renderTable(g);
+          };
           $("actions").append(select);
         }
         $("actions").append(
@@ -338,7 +369,15 @@
       $("actions")
         .querySelectorAll("button,select")
         .forEach((el) => (el.disabled = true));
+    if (revealing)
+      text(
+        "instruction",
+        g.battle
+          ? "구조 주사위 결과를 확인하고 있어요…"
+          : "주사위와 출현 카드를 확인한 뒤 바로 이동합니다…",
+      );
     drawBoard(g, mine && !revealing);
+    renderOutcome(g);
     $("team").replaceChildren();
     g.players.forEach((o, i) => {
       const el = document.createElement("div");
@@ -383,61 +422,127 @@
   function cancelReveal() {
     revealVersion++;
     revealing = false;
+    // 같은 공개 무대를 재사용하므로 지난 비행의 transform도 반드시 지운다.
+    $("revealDice")
+      .getAnimations({ subtree: true })
+      .forEach((animation) => animation.cancel());
     show("reveal", false);
     $("tableTray").classList.remove("revealing");
     $("revealDice").replaceChildren();
     $("revealCard").replaceChildren();
+    text("revealNote", "");
+  }
+  const combatSymbol = (value) => (value < 2 ? "✦" : value === 2 ? "◆" : "—");
+  function makeDie(v, owner) {
+    const unit = document.createElement("div");
+    unit.className = "die-unit";
+    unit.dataset.owner = owner.id;
+    const other = !host && owner.id !== me?.id;
+    unit.classList.toggle("other-die", other);
+    unit.setAttribute("aria-label", owner.name + "님의 주사위 결과 " + v);
+    if (other) unit.setAttribute("aria-disabled", "true");
+    const d = document.createElement("div");
+    d.className = "die-space";
+    const cube = document.createElement("div");
+    cube.className = "die-cube";
+    cube.setAttribute("aria-hidden", "true");
+    let faces;
+    if (typeof v === "number") {
+      const rest = [1, 2, 3, 4, 5, 6].filter((n) => n !== v && n !== 7 - v);
+      faces = [
+        v,
+        7 - v,
+        rest[0],
+        7 - rest[0],
+        rest.find((n) => n !== rest[0] && n !== 7 - rest[0]),
+        0,
+      ];
+      faces[5] = 7 - faces[4];
+    } else if (v === "?") {
+      faces = ["?", "—", "✦", "—", "◆", "✦"];
+    } else {
+      const rest = ["✦", "✦", "◆", "—", "—", "—"];
+      rest.splice(rest.indexOf(v), 1);
+      faces = [v, ...rest];
+    }
+    faces.forEach((value, index) => {
+      const face = document.createElement("span");
+      face.className = "die-face face-" + index;
+      face.textContent = value;
+      if (value === "◆") face.style.color = "#ba274d";
+      if (value === "✦") face.style.color = "#2476a8";
+      cube.append(face);
+    });
+    d.append(cube);
+    unit.append(d);
+    const label = document.createElement("small");
+    label.textContent = owner.id === me?.id ? "내 주사위" : owner.name + "님";
+    unit.append(label);
+    return unit;
   }
   function renderTable(g) {
-    const key = [g.round, g.turn, g.roll, g.card, g.dice.join(",")].join(":");
+    const p = g.players[g.turn],
+      region = g.regions.find((r) => r.id === p.node);
+    const key = JSON.stringify([
+      g.round,
+      g.turn,
+      g.roll,
+      g.card,
+      g.phase,
+      p.node,
+      g.dice,
+      g.battle,
+      selectedHelper,
+    ]);
     if (key === presentationKey) return;
-    const animate = presentationKey !== null && g.roll !== null;
+    const rollKey = [g.round, g.turn, g.roll].join(":");
+    const battleKey = g.battle
+      ? JSON.stringify([g.round, g.turn, g.dice, g.battle])
+      : null;
+    const animate =
+      presentationKey !== null &&
+      ((g.roll !== null && rollKey !== previousRollKey) ||
+        (g.battle && battleKey !== previousBattleKey));
     presentationKey = key;
+    previousRollKey = rollKey;
+    previousBattleKey = battleKey;
     cancelReveal();
     $("dice").replaceChildren();
+    text("battleNote", "");
     $("dice").title = "✦ 일반 구조 성공 · ◆ 다크라이 해결 성공 · — 빗나감";
-    const vals = g.dice.length
-      ? g.dice.map((v) => (v < 2 ? "✦" : v === 2 ? "◆" : "—"))
-      : g.roll
-        ? [g.roll]
-        : [];
-    vals.forEach((v) => {
-      const d = document.createElement("div");
-      d.className = "die-space";
-      d.setAttribute("aria-label", "주사위 결과 " + v);
-      const cube = document.createElement("div");
-      cube.className = "die-cube";
-      cube.setAttribute("aria-hidden", "true");
-      let faces;
-      if (typeof v === "number") {
-        const rest = [1, 2, 3, 4, 5, 6].filter((n) => n !== v && n !== 7 - v);
-        faces = [
-          v,
-          7 - v,
-          rest[0],
-          7 - rest[0],
-          rest.find((n) => n !== rest[0] && n !== 7 - rest[0]),
-          0,
-        ];
-        faces[5] = 7 - faces[4];
-      } else {
-        const rest = ["✦", "✦", "◆", "—", "—", "—"];
-        rest.splice(rest.indexOf(v), 1);
-        faces = [v, ...rest];
-      }
-      faces.forEach((value, index) => {
-        const face = document.createElement("span");
-        face.className = "die-face face-" + index;
-        face.textContent = value;
-        if (value === "◆") face.style.color = "#ba274d";
-        if (value === "✦") face.style.color = "#2476a8";
-        cube.append(face);
+    if (g.battle) {
+      g.battle.participants.forEach((owner, i) => {
+        const extra = g.battle.extra?.id === owner.id ? g.battle.extra : null;
+        $("dice").append(
+          makeDie(combatSymbol(extra ? extra.value : g.dice[i]), owner),
+        );
       });
-      d.append(cube);
-      $("dice").append(d);
-    });
-
-    if (!g.roll) $("dice").textContent = "주사위를 기다리는 중";
+      if (g.battle.extra) {
+        const extra = g.battle.extra;
+        const i = g.battle.participants.findIndex((o) => o.id === extra.id);
+        text(
+          "battleNote",
+          extra.reason +
+            " " +
+            combatSymbol(g.dice[i]) +
+            " → " +
+            combatSymbol(extra.value),
+        );
+      }
+    } else if (g.phase === "act" && region?.mobs.length) {
+      const helpers = g.players.filter(
+        (o) => o.node === p.node && o.id !== p.id,
+      );
+      const helper = helpers.find((o) => o.id === selectedHelper) || helpers[0];
+      [p, ...(helper ? [helper] : [])].forEach((owner) =>
+        $("dice").append(makeDie("?", owner)),
+      );
+      text(
+        "battleNote",
+        helper ? "각자 주사위 1개 · 최대 2명 협동" : "내 구조 주사위 1개",
+      );
+    } else if (g.roll !== null) $("dice").append(makeDie(g.roll, p));
+    else $("dice").textContent = "주사위를 기다리는 중";
     $("card").replaceChildren();
     const face = g.card !== null;
     $("card").append(
@@ -459,7 +564,7 @@
         : "주사위를 던지면 공개돼요";
     $("card").append(caption);
     if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches)
-      playReveal(g, face && !g.dice.length);
+      playReveal(g, face && !g.battle);
   }
   async function flyTo(el, target) {
     const from = el.getBoundingClientRect(),
@@ -484,15 +589,35 @@
     if (!host && g.players[g.turn].id === me?.id)
       $("board").scrollIntoView({ block: "start", behavior: "smooth" });
     $("tableTray").classList.add("revealing");
-    $("revealDice").replaceChildren(
-      ...Array.from($("dice").children, (el) => el.cloneNode(true)),
-    );
+    if (g.battle)
+      $("revealDice").replaceChildren(
+        ...g.battle.participants.map((owner, i) =>
+          makeDie(combatSymbol(g.dice[i]), owner),
+        ),
+      );
+    else
+      $("revealDice").replaceChildren(
+        ...Array.from($("dice").children, (el) => el.cloneNode(true)),
+      );
     $("revealDice")
       .querySelectorAll(".die-cube")
       .forEach((el) => el.classList.add("rolling"));
     show("reveal", true);
     await wait(900);
     if (!current()) return;
+    if (g.battle?.extra) {
+      const extra = g.battle.extra,
+        owner = g.battle.participants.find((o) => o.id === extra.id);
+      text("revealNote", extra.reason);
+      const die = Array.from($("revealDice").children).find(
+        (el) => el.dataset.owner === extra.id,
+      );
+      const replacement = makeDie(combatSymbol(extra.value), owner);
+      replacement.querySelector(".die-cube").classList.add("rolling");
+      die.replaceWith(replacement);
+      await wait(900);
+      if (!current()) return;
+    }
     if (withCard) {
       const im = image("card-" + g.card + ".webp", "출현 카드", "reveal-card");
       $("revealCard").append(im);
@@ -518,6 +643,52 @@
     }
     cancelReveal();
     render();
+  }
+  function closeOutcome() {
+    if ($("outcome").open) $("outcome").close();
+    text("outcomeError", "");
+  }
+  function renderOutcome(g) {
+    const ended = ["won", "lost"].includes(g.phase);
+    if (!ended || revealing) {
+      closeOutcome();
+      return;
+    }
+    text("outcomeTitle", g.phase === "won" ? "탐사 성공" : "탐사 실패");
+    text(
+      "outcomeText",
+      g.phase === "won"
+        ? "탐사대와 파트너들의 협력으로 기라티나가 평온을 되찾았습니다."
+        : g.lossReason ||
+            "다크라이가 6곳을 장악했습니다. 대기실에서 다시 도전해요.",
+    );
+    $("outcomeBack").disabled = busy || !socket.connected;
+    if (!$("outcome").open) $("outcome").showModal();
+  }
+  function updateTurnNotice(g, mine, ended) {
+    text(
+      "turnStatus",
+      ended
+        ? "탐사가 종료되었습니다"
+        : mine
+          ? "내 차례"
+          : g.players[g.turn].name + "님 플레이를 기다리는 중",
+    );
+    $("turnStatus").classList.toggle("own-turn", mine && !ended);
+    const key = g.round + ":" + g.turn;
+    if (ended) {
+      clearTimeout(turnToastTimer);
+      show("turnToast", false);
+      return;
+    }
+    if (key === lastTurnKey) return;
+    lastTurnKey = key;
+    clearTimeout(turnToastTimer);
+    show("turnToast", false);
+    if (mine && !host) {
+      show("turnToast", true);
+      turnToastTimer = setTimeout(() => show("turnToast", false), 1800);
+    }
   }
   function seal(number) {
     const el = document.createElement("span");

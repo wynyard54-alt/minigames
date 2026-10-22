@@ -23,6 +23,7 @@ class Expedition {
     this.roll = null;
     this.card = null;
     this.dice = [];
+    this.battle = null;
     this.log = [
       "기라티나의 폭주를 막으려면 봉인조각 8개를 순서대로 회수하세요.",
     ];
@@ -156,7 +157,8 @@ class Expedition {
       this.moves = this.roll + (this.final(p) ? 1 : 0);
       this.card = null;
       this.dice = [];
-      this.phase = "card";
+      this.battle = null;
+      this.phase = "move";
       this.note(
         p.name +
           " 이동 주사위 " +
@@ -164,10 +166,6 @@ class Expedition {
           (this.final(p) ? " + 진화 보너스 1" : ""),
       );
       if (this.roll !== 6) this.draw();
-      return;
-    }
-    if (req.type === "confirm" && this.phase === "card") {
-      this.phase = "move";
       return;
     }
     if (req.type === "move" && this.phase === "move") {
@@ -240,6 +238,12 @@ class Expedition {
       if (r.dark && team.length < 2)
         return "다크라이는 두 명이 함께 있어야 해결할 수 있어요.";
       this.dice = team.map(() => Math.floor(this.rng() * 6));
+      this.battle = {
+        participants: team.map((o) => ({ id: o.id, name: o.name })),
+        dark: !!r.dark,
+        extra: null,
+        success: false,
+      };
       const wins = () => this.dice.some((d) => (r.dark ? d === 2 : d < 2));
       let success = wins();
       if (!success && !r.dark) {
@@ -250,10 +254,15 @@ class Expedition {
         if (eligible || chance) {
           this.note(eligible ? "필드효과, 추가공격!" : "랜덤 공격 찬스!");
           const extra = Math.floor(this.rng() * 6);
-          this.dice.push(extra);
+          this.battle.extra = {
+            id: p.id,
+            value: extra,
+            reason: eligible ? "필드효과, 추가공격!" : "랜덤 공격 찬스!",
+          };
           success = extra < 2;
         }
       }
+      this.battle.success = success;
       if (success) this.rescue(r, r.dark ? 3 : 1, team);
       else this.note("이번 공격은 빗나갔어요. 함께 다시 도전해요.");
       this.phase = "end";
@@ -283,6 +292,7 @@ class Expedition {
     this.roll = null;
     this.card = null;
     this.dice = [];
+    this.battle = null;
   }
   snapshot() {
     return {
@@ -294,6 +304,7 @@ class Expedition {
       roll: this.roll,
       card: this.card,
       dice: this.dice,
+      battle: this.battle,
       regions: this.regions.map((r) => ({
         ...r,
         fragment: r.revealed ? r.fragment : null,
@@ -421,7 +432,10 @@ function attach(io) {
           r.game = new Expedition(
             r.players.map(({ id, name, partner }) => ({ id, name, partner })),
           );
-      } else if (d?.type === "reset" && host) {
+      } else if (
+        d?.type === "reset" &&
+        (host || (p && r.game && ["won", "lost"].includes(r.game.phase)))
+      ) {
         r.game = null;
         r.players.forEach((p) => (p.ready = false));
       } else if (d?.type === "kick" && host && !r.game) {

@@ -80,12 +80,14 @@
           <section id="diceSlot" class="tray-slot">
             <h2>주사위</h2>
             <div id="dice" aria-live="polite"></div>
+            <p id="battleNote" class="hint"></p>
             <p class="hint">✦ 일반 구조 · ◆ 다크라이</p>
           </section>
         </div>
       </section>
       <aside>
         <section id="turnPanel" class="panel">
+          <div id="turnStatus" class="turn-status" role="status"></div>
           <div id="myCarry" class="my-carry"></div>
           <h2 id="phaseTitle"></h2>
           <p id="instruction"></p>
@@ -146,11 +148,19 @@
       </aside>
     </main>
     <div id="reveal" class="hidden" aria-hidden="true">
+      <p id="revealNote" class="reveal-note"></p>
       <div class="reveal-stage">
         <div id="revealDice"></div>
         <div id="revealCard"></div>
       </div>
     </div>
+    <div id="turnToast" class="hidden" role="status">내 차례!</div>
+    <dialog id="outcome" aria-labelledby="outcomeTitle">
+      <h2 id="outcomeTitle"></h2>
+      <p id="outcomeText"></p>
+      <p id="outcomeError" role="alert"></p>
+      <button id="outcomeBack">대기실로 돌아가기</button>
+    </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
     <script src="ghost-client.js"></script>
