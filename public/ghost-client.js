@@ -59,6 +59,25 @@
         );
     });
   };
+  function fieldDescription(partner) {
+    return partner.zones.length
+      ? partner.zones.map((id) => D.regions[id - 1].name).join("·") +
+          "에서 필드효과로 구출 찬스 ×2"
+      : "모든 지역에서 20% 확률로 추가공격 찬스";
+  }
+  const guide = $("partnerFieldGuide");
+  guide.append(
+    document.createTextNode(
+      "일반 구조 공격이 실패하면 유리한 지역에서 추가공격을 1회 더 합니다(구출 찬스 ×2). 진화 후에도 동일하며, 다크라이 배틀에는 적용되지 않습니다.",
+    ),
+  );
+  D.partners.forEach((partner) => {
+    const line = document.createElement("span");
+    line.className = "field-guide-line";
+    line.textContent =
+      partner.names.join("·") + ": " + fieldDescription(partner);
+    guide.append(line);
+  });
   function button(label, fn, disabled = false) {
     const b = document.createElement("button");
     b.textContent = label;
@@ -399,6 +418,12 @@
         (o.rescues >= 6 ? " · 이동 +1" : "");
       sm.classList.toggle("loaded", !!o.carry);
       d.append(sm);
+      const field = document.createElement("small");
+      field.className = "partner-field";
+      field.textContent = fieldDescription(D.partners[o.partner]);
+      field.title =
+        "일반 구조 공격 실패 시 추가공격 1회. 다크라이 배틀에는 적용되지 않습니다.";
+      d.append(field);
       el.append(d);
       $("team").append(el);
     });

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261022-combat-icons" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-field-guide" />
   </head>
   <body>
     <header>
@@ -143,13 +143,13 @@
           <p>
             조각은 방문하면 번호 공개, 한 명당 1개 운반. 캠프에서 1~8번 순서대로
             반납하며, 모두 돌아오면 승리합니다. 다크라이가 있는 지역에서는 조각
-            운반자가 나갈 수 없습니다.
+            운반자가 나갈 수 없습니다. 조각이 없는 지역에 내려놓으면 다른
+            플레이어가 자기 차례에 가져갈 수 있습니다.
           </p>
           <p>
             구조 참여 3마리·6마리에 진화(리오르는 6마리). 최종 진화하면 이동 +1.
-            파트너별 유리 지역에서는 일반 공격 실패 후 추가공격 1회. 고오스
-            계열은 전 지역 20% 확률입니다.
           </p>
+          <p id="partnerFieldGuide"></p>
         </details>
         <div id="hostControls" class="panel hidden">
           <button id="skip" class="secondary">자리 비운 친구 차례 넘기기</button
@@ -173,6 +173,6 @@
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
-    <script src="ghost-client.js?v=20261022-combat-icons"></script>
+    <script src="ghost-client.js?v=20261022-field-guide"></script>
   </body>
 </html>
