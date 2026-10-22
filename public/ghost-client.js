@@ -439,11 +439,13 @@
     $("revealCard").replaceChildren();
     text("revealNote", "");
   }
-  const combatSymbol = (value) => (value < 2 ? "✦" : value === 2 ? "◆" : "—");
+  const combatSymbol = (value) =>
+    value < 2 ? "몬스터볼" : value === 2 ? "다크라이" : "빗나감";
   function makeDie(v, owner) {
     const unit = document.createElement("div");
     unit.className = "die-unit";
     unit.dataset.owner = owner.id;
+    unit.dataset.face = typeof v === "number" ? "이동" : v;
     const other = !host && owner.id !== me?.id;
     unit.classList.toggle("other-die", other);
     unit.setAttribute("aria-label", owner.name + "님의 주사위 결과 " + v);
@@ -510,17 +512,63 @@
     shape("circle", { cx: 49, cy: 11, r: 1.6, fill: "#8794a5" });
     shape("ellipse", { cx: 72, cy: 36, rx: 1.5, ry: 2.4, fill: "#5c6f86" });
     shape("ellipse", { cx: 72, cy: 49, rx: 1.5, ry: 2.4, fill: "#5c6f86" });
-    const result = shape("text", {
-      x: 36,
-      y: 48,
-      "text-anchor": "middle",
-      "dominant-baseline": "central",
-      fill: v === "◆" ? "#ba274d" : v === "✦" ? "#2476a8" : "#21334c",
-      "font-size": typeof v === "number" ? 30 : 28,
-      "font-family": "system-ui, sans-serif",
-      "font-weight": 800,
-    });
-    result.textContent = v;
+    if (v === "몬스터볼") {
+      shape("circle", {
+        cx: 36,
+        cy: 47,
+        r: 19,
+        fill: "#fffdfa",
+        stroke: "#263443",
+        "stroke-width": 2.2,
+      });
+      shape("path", { d: "M17 47 A19 19 0 0 1 55 47 Z", fill: "#e84c50" });
+      shape("path", {
+        d: "M17 47 H55",
+        stroke: "#263443",
+        "stroke-width": 2.8,
+      });
+      shape("circle", {
+        cx: 36,
+        cy: 47,
+        r: 6,
+        fill: "#fffdfa",
+        stroke: "#263443",
+        "stroke-width": 2.4,
+      });
+      shape("circle", {
+        cx: 36,
+        cy: 47,
+        r: 2.8,
+        fill: "#f1f3ed",
+        stroke: "#a3adb1",
+        "stroke-width": 0.7,
+      });
+    } else if (v === "다크라이") {
+      const icon = shape("svg", {
+        x: 13,
+        y: 23,
+        width: 46,
+        height: 46,
+        viewBox: "85 0 270 260",
+      });
+      const picture = document.createElementNS(ns, "image");
+      picture.setAttribute("href", A + "darkrai.webp");
+      picture.setAttribute("width", "420");
+      picture.setAttribute("height", "420");
+      icon.append(picture);
+    } else if (v !== "빗나감") {
+      const result = shape("text", {
+        x: 36,
+        y: 48,
+        "text-anchor": "middle",
+        "dominant-baseline": "central",
+        fill: "#21334c",
+        "font-size": typeof v === "number" ? 30 : 28,
+        "font-family": "system-ui, sans-serif",
+        "font-weight": 800,
+      });
+      result.textContent = v;
+    }
     cube.append(svg);
     d.append(cube);
     unit.append(d);
@@ -558,7 +606,8 @@
     cancelReveal();
     $("dice").replaceChildren();
     text("battleNote", "");
-    $("dice").title = "✦ 일반 구조 성공 · ◆ 다크라이 해결 성공 · — 빗나감";
+    $("dice").title =
+      "몬스터볼: 일반 구조 성공 · 다크라이: 다크라이 해결 성공 · 빈 면: 빗나감";
     if (g.battle) {
       g.battle.participants.forEach((owner, i) => {
         const extra = g.battle.extra?.id === owner.id ? g.battle.extra : null;

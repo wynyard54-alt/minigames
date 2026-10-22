@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
-    <link rel="stylesheet" href="ghost.css?v=20261022-stable-reveal" />
+    <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-combat-icons" />
   </head>
   <body>
     <header>
@@ -81,7 +82,15 @@
             <h2>주사위</h2>
             <div id="dice" aria-live="polite"></div>
             <p id="battleNote" class="hint"></p>
-            <p class="hint">✦ 일반 구조 · ◆ 다크라이</p>
+            <p class="hint dice-legend">
+              <span><i class="pokeball-icon" aria-hidden="true"></i>구조</span
+              ><span
+                ><img
+                  src="assets/ghost/darkrai.webp"
+                  alt="다크라이"
+                />다크라이</span
+              ><span>빈 면: 실패</span>
+            </p>
           </section>
         </div>
       </section>
@@ -122,7 +131,8 @@
             조각 회수 → 차례 마치기.
           </p>
           <p>
-            일반 배틀은 6면 중 구조 2면, 다크라이는 다크라이 1면이 성공입니다.
+            구조 주사위는 몬스터볼 2면, 다크라이 1면, 빈 면 3면입니다. 일반
+            배틀은 몬스터볼, 다크라이 배틀은 다크라이 그림이 나오면 성공입니다.
             같은 지역 두 명이 함께 공격하면 주사위 최대 2개. 다크라이는 두 명
             필수이며 해결하면 아래 3마리도 모두 구조합니다.
           </p>
@@ -163,6 +173,6 @@
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
-    <script src="ghost-client.js?v=20261022-stable-reveal"></script>
+    <script src="ghost-client.js?v=20261022-combat-icons"></script>
   </body>
 </html>

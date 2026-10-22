@@ -821,7 +821,7 @@ details p {
   align-items: start;
 }
 .tray-slot {
-  height: 172px;
+  height: 192px;
   overflow: hidden;
 }
 #card {
@@ -842,7 +842,7 @@ details p {
 }
 @media (max-width: 850px) {
   .tray-slot {
-    height: 158px;
+    height: 180px;
   }
   #card {
     height: 102px;
@@ -864,4 +864,43 @@ details p {
 .reveal-flight.other-flight {
   filter: grayscale(1);
   opacity: 0.5;
+}
+.dice-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 7px;
+  font-size: 10px;
+}
+.dice-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.dice-legend img {
+  width: 19px;
+  height: 20px;
+  object-fit: contain;
+}
+.pokeball-icon {
+  position: relative;
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border: 1.5px solid #243347;
+  border-radius: 50%;
+  background: linear-gradient(#eb5155 0 44%, #243347 44% 56%, #fffdfa 56%);
+}
+.pokeball-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border: 1px solid #243347;
+  border-radius: 50%;
+  background: #fffdfa;
+  transform: translate(-50%, -50%);
 }
