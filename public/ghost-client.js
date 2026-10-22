@@ -131,6 +131,7 @@
   socket.on("closed", (s) => {
     text("error", s);
     room = null;
+    closeOpening();
     closeOutcome();
     cancelReveal();
     document.body.classList.remove("playing");
@@ -165,6 +166,14 @@
     if (confirm("진행 중인 탐사를 끝내고 대기실로 돌아갈까요?"))
       command("reset");
   };
+  const closeOpening = () => {
+    if ($("opening").open) $("opening").close();
+  };
+  $("openingContinue").onclick = closeOpening;
+  $("opening").addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeOpening();
+  });
   $("outcomeBack").onclick = () => command("reset");
   $("outcome").addEventListener("cancel", (event) => event.preventDefault());
   let qrCode = "";
@@ -204,6 +213,10 @@
     room = r;
     prepareEffects(before, r.game);
     render();
+    // 첫 주사위 전만 소개하고, 재접속으로 진행 중인 탐사를 가리지 않는다.
+    if (!before && r.game?.round === 1 && r.game.turn === 0 && !r.game.roll && r.game.phase === "roll")
+      $("opening").showModal();
+    if (!r.game || r.game.roll || ["won", "lost"].includes(r.game.phase)) closeOpening();
     soundFromChange(before, r.game);
   });
 
@@ -1094,10 +1107,16 @@
     text(
       "outcomeText",
       g.phase === "won"
-        ? "탐사대와 파트너들의 협력으로 기라티나가 평온을 되찾았습니다."
-        : g.lossReason ||
-            "다크라이가 6곳을 장악했습니다. 대기실에서 다시 도전해요.",
+        ? "여덟 조각이 모여 기라티나가 평온을 되찾았습니다.\n서로를 도운 우리 탐사대가 신오를 지켜냈어요!"
+        : "이번 탐사에서는 봉인을 완성하지 못했습니다.\n구조한 포켓몬들은 안전해요. 다시 함께 도전해요!",
     );
+    const art = A + (g.phase === "won" ? "story-success.webp" : "story-failure.webp");
+    if ($("outcomeArt").getAttribute("src") !== art) $("outcomeArt").src = art;
+    $("outcomeArt").alt = g.phase === "won"
+      ? "봉인조각 8개가 봉인진을 이루고 탐사대가 평화를 되찾은 모습"
+      : "기라티나가 남아 있는 하늘 아래 탐사대가 캠프에서 다음 도전을 준비하는 모습";
+    text("outcomeReason", g.phase === "lost" ? g.lossReason || "다크라이가 6곳을 장악했습니다." : "");
+    closeOpening();
     $("outcomeBack").disabled = busy || !socket.connected;
     if (!$("outcome").open) $("outcome").showModal();
   }

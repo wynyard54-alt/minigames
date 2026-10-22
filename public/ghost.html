@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261024-danger" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-story" />
   </head>
   <body>
     <header>
@@ -188,15 +188,27 @@
       </div>
     </div>
     <div id="turnToast" class="hidden" role="status">내 차례!</div>
-    <dialog id="outcome" aria-labelledby="outcomeTitle">
+    <dialog id="opening" class="story-dialog" aria-labelledby="openingTitle" aria-describedby="openingText">
+      <img class="story-art" src="assets/ghost/story-opening.webp" alt="기라티나의 폭주로 봉인조각이 흩어지고 탐사대가 모험을 시작하는 모습" />
+      <div class="story-caption">
+        <h2 id="openingTitle">깨진 봉인</h2>
+        <p id="openingText">반물질을 관장하는 기라티나가 폭주했습니다!<br />아르세우스가 남긴 <strong>봉인조각 8개</strong>를 모아<br />파트너와 함께 평온을 되찾아 주세요.</p>
+        <button id="openingContinue" autofocus>탐사 지도 보기 →</button>
+      </div>
+    </dialog>
+    <dialog id="outcome" class="story-dialog" aria-labelledby="outcomeTitle" aria-describedby="outcomeText">
+      <img id="outcomeArt" class="story-art" alt="" />
+      <div class="story-caption">
       <h2 id="outcomeTitle"></h2>
       <p id="outcomeText"></p>
+      <p id="outcomeReason"></p>
       <p id="outcomeError" role="alert"></p>
       <button id="outcomeBack">대기실로 돌아가기</button>
+      </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261024-danger"></script>
+    <script src="ghost-client.js?v=20261022-story"></script>
   </body>
 </html>

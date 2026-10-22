@@ -1573,3 +1573,64 @@ body.playing:not(.student) .gauge small {
     animation: none !important;
   }
 }
+
+/* 삽화는 그대로 두고 자막 뒤에만 어두운 그라데이션을 겹친다. */
+dialog.story-dialog,
+#outcome.story-dialog {
+  width: min(94vw, 960px);
+  max-width: 960px;
+  max-height: 94vh;
+  max-height: 94dvh;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid #8bacc9;
+  border-radius: 20px;
+  background: #0c1729;
+  color: #fff;
+  box-shadow: 0 15px 70px #000b;
+  text-align: center;
+}
+.story-dialog::backdrop { background: #060e1be8; }
+.story-art {
+  display: block;
+  width: 100%;
+  max-height: 61vh;
+  max-height: 61dvh;
+  object-fit: contain;
+  background: #0c1729;
+}
+.story-caption {
+  position: relative;
+  margin-top: -48px;
+  padding: 58px 24px 24px;
+  background: linear-gradient(to bottom, #0c172900, #0c1729f5 52px, #0c1729 100px);
+  text-shadow: 0 2px 5px #000;
+}
+.story-caption h2,
+#outcome .story-caption h2 {
+  margin: 0 0 10px;
+  color: #ffe0a1;
+  font-size: clamp(25px, 4vw, 34px);
+}
+.story-caption p,
+#outcome .story-caption p {
+  margin: 8px 0 16px;
+  color: #fff;
+  font-size: clamp(16px, 2.1vw, 20px);
+  line-height: 1.65;
+  word-break: keep-all;
+  white-space: pre-line;
+}
+.story-caption strong { color: #ffe0a1; }
+.story-caption button,
+#outcome .story-caption button {
+  width: min(100%, 380px);
+  min-height: 48px;
+  margin-top: 4px;
+}
+#outcome .story-caption #outcomeReason { font-size: 14px; color: #d5e1f0; }
+#outcomeReason:empty { display: none; }
+@media (max-width: 600px) {
+  .story-art { max-height: 48vh; max-height: 48dvh; }
+  .story-caption { padding: 56px 16px 20px; }
+}
