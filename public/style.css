@@ -1406,12 +1406,12 @@ body.flash-kill #pad {
   position: relative;
   overflow: hidden;
   gap: 0;
-  background: linear-gradient(90deg, rgba(76, 219, 106, 0.3), rgba(29, 35, 56, 0) 45%, rgba(29, 35, 56, 0) 55%, rgba(157, 110, 255, 0.35)),
+  background: radial-gradient(circle at center, rgba(157, 110, 255, 0.38), rgba(29, 35, 56, 0) 65%),
     linear-gradient(rgba(29, 35, 56, 0.82), rgba(29, 35, 56, 0.82)), url('assets/ghost/map.webp') center 60% / cover;
 }
 .game-thumb.ghost img {
-  height: 112px;
-  width: 150px;
+  height: 120px;
+  width: 190px;
   object-fit: contain;
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.5));
 }
