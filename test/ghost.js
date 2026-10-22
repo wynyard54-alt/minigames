@@ -239,6 +239,8 @@ function run() {
   assert(D.nodes.r4.links.includes("u3"));
   assert(D.nodes.r5.links.includes("u4"));
   assert(D.nodes.r6.links.includes("v5"));
+  assert(D.nodes.r6.links.includes("u2"), "숲 위쪽 문");
+  assert(D.nodes.r9.links.includes("v10"), "강 하구 오른쪽 문");
   assert(D.nodes.r10.links.includes("v8"));
   assert(!D.nodes.r1.links.includes("t0"), "문 없는 화산 벽 통과 금지");
   assert(
