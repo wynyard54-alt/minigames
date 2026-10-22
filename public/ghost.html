@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261023-sound" />
+    <link rel="stylesheet" href="ghost.css?v=20261023-board-fx" />
   </head>
   <body>
     <header>
@@ -91,11 +91,9 @@
           />
           <div id="nodes"></div>
           <div id="pieces"></div>
+          <div id="fxLayer" aria-hidden="true"></div>
         </div>
-        <p class="hint">
-          빛나는 이동 칸이나 지역 번호를 눌러 이동하세요. 지역 사이 문으로
-          지름길을 이용할 수 있어요.
-        </p>
+        <p class="hint">빛나는 칸을 눌러 이동 · 파란 문은 옆 지역으로 가는 지름길</p>
         <div id="tableTray" class="table-tray">
           <section id="cardSlot" class="tray-slot">
             <h2>출현 카드</h2>
@@ -199,6 +197,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="ghost-data.js"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261023-sound"></script>
+    <script src="ghost-client.js?v=20261023-board-fx"></script>
   </body>
 </html>

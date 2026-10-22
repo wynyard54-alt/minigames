@@ -202,6 +202,7 @@
   socket.on("update", (r) => {
     const before = room?.game;
     room = r;
+    prepareEffects(before, r.game);
     render();
     soundFromChange(before, r.game);
   });
@@ -219,16 +220,177 @@
     renderMute();
   };
   renderMute();
-  // 두 칸 사이의 가장 짧은 칸 수 (말 이동 '톡톡' 횟수)
-  function hops(from, to) {
-    const dist = { [from]: 0 },
+  // 두 칸 사이의 가장 짧은 길 (말이 한 칸씩 걸어가는 경로)
+  function pathBetween(from, to) {
+    const prev = { [from]: null },
       q = [from];
     while (q.length) {
       const n = q.shift();
-      if (n === to) return dist[n];
-      for (const m of D.nodes[n].links) if (dist[m] === undefined) (dist[m] = dist[n] + 1), q.push(m);
+      if (n === to) break;
+      for (const m of D.nodes[n].links) if (!(m in prev)) (prev[m] = n), q.push(m);
     }
-    return 1;
+    if (!(to in prev)) return [from, to];
+    const path = [];
+    for (let n = to; n !== null; n = prev[n]) path.unshift(n);
+    return path;
+  }
+
+  // ---------- 지도 연출: 말 걷기, 출현 말 탁 놓기, 다크라이, 경고, 구조, 진화 ----------
+  const STEP_MS = 190; // 말이 한 칸 가는 시간
+  const fxState = { walks: new Map(), drops: new Map() };
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // 연출 끝날 즈음(주사위·카드 공개 뒤) 시각
+  function revealEnd(a, b) {
+    const rolled = b.roll !== null && (a.roll !== b.roll || a.turn !== b.turn || a.round !== b.round);
+    const battled = b.battle && JSON.stringify(a.battle) !== JSON.stringify(b.battle);
+    if (calm()) return 0;
+    return rolled ? 1150 : battled ? (b.battle.extra ? 1900 : 1000) : 0;
+  }
+  const pawnPos = (node) => {
+    const n = D.nodes[node];
+    return { x: n.pawnX ?? n.x, y: n.pawnY ?? n.y };
+  };
+  const clusterPos = (node) => {
+    const n = D.nodes[node];
+    return { x: n.encounterX ?? n.x, y: n.encounterY ?? n.y };
+  };
+  // 지도 위 잠깐 보였다 사라지는 효과 (다시 그려도 지워지지 않는 별도 층)
+  function fxEl(cls, pos, html) {
+    const el = document.createElement("div");
+    el.className = "fx " + cls;
+    el.style.left = pos.x + "%";
+    el.style.top = pos.y + "%";
+    if (html) el.innerHTML = html;
+    $("fxLayer").append(el);
+    return el;
+  }
+  function prepareEffects(a, b) {
+    if (!a || !b || calm()) return;
+    const now = performance.now(),
+      after = revealEnd(a, b);
+    // 말 걷기
+    b.players.forEach((p, i) => {
+      const q = a.players[i];
+      if (q && q.id === p.id && q.node !== p.node) {
+        const path = pathBetween(q.node, p.node);
+        fxState.walks.set(p.id, { path, start: now, dur: (path.length - 1) * STEP_MS });
+      }
+    });
+    b.regions.forEach((r, i) => {
+      const o = a.regions[i];
+      // 새로 나온 폭주 포켓몬: 카드 공개 뒤 위에서 '탁' 놓인다
+      for (let k = o.mobs.length; k < r.mobs.length; k++) fxState.drops.set(r.id + ":" + k, now + after);
+      if (r.dark && !o.dark) {
+        fxState.drops.set(r.id + ":dark", now + after);
+        later(after, () => {
+          const board = $("board");
+          board.classList.remove("quake");
+          void board.offsetWidth;
+          board.classList.add("quake");
+          later(1300, () => board.classList.remove("quake"));
+        });
+      } else if (!r.dark && o.mobs.length < 2 && r.mobs.length === 2)
+        later(after + 420, () => {
+          // 한 마리만 더 오면 다크라이: 한 번 경고
+          const w = fxEl("danger", clusterPos(r.id), "<b>⚠ 1마리 더 오면 다크라이!</b>");
+          later(2800, () => w.remove());
+        });
+      // 구조 성공: 사라진 포켓몬을 잠깐 그대로 두었다가 몬스터볼로 쏙
+      const gone = [...o.mobs];
+      r.mobs.forEach((m) => gone.splice(gone.indexOf(m), 1));
+      if (b.battle?.success && (gone.length || (o.dark && !r.dark))) captureFx(r.id, gone, o.dark && !r.dark, after, b);
+    });
+    // 진화
+    b.players.forEach((p, i) => {
+      const q = a.players[i];
+      if (!q || q.id !== p.id || (p.stage || 0) <= (q.stage || 0)) return;
+      later(after + 700, () => {
+        const pos = pawnPos(p.node);
+        const el = fxEl("evolve", pos, "<i></i><b></b>");
+        const name = D.partners[p.partner].names[p.stage],
+          last = name.charCodeAt(name.length - 1) - 0xac00,
+          ro = last < 0 || last % 28 === 0 || last % 28 === 8 ? "로" : "으로"; // 받침 있으면 '으로'
+        el.querySelector("b").textContent = name + ro + " 진화!";
+        later(2200, () => el.remove());
+      });
+    });
+  }
+  function captureFx(node, names, dark, after, b) {
+    const pos = clusterPos(node);
+    const pics = names.map((n) => mobs[n]).filter(Boolean);
+    if (dark) pics.unshift("darkrai.webp");
+    // 결과가 나오기 전까지 사라진 포켓몬을 원래 자리에 그대로 보여 준다
+    const holder = fxEl("capture", pos);
+    pics.forEach((src) => holder.append(image(src, "", dark && src === "darkrai.webp" ? "cap-dark" : "cap-mob")));
+    later(after, () => {
+      holder.classList.add("go");
+      const ball = fxEl("ball", { x: pos.x, y: pos.y - 2 }, "<i class=\"pokeball-icon\"></i>");
+      const rescuer = b.battle.participants?.[0];
+      const who = rescuer && b.players.find((o) => o.id === rescuer.id);
+      const to = who ? pawnPos(who.node) : pos;
+      later(650, () => {
+        holder.remove();
+        ball.animate(
+          [
+            { left: pos.x + "%", top: pos.y - 2 + "%" },
+            { left: (pos.x + to.x) / 2 + "%", top: Math.min(pos.y, to.y) - 9 + "%" },
+            { left: to.x + "%", top: to.y - 4 + "%", opacity: 0.2 },
+          ],
+          { duration: 520, easing: "ease-in", fill: "forwards" },
+        );
+        const t = fxEl("float", { x: pos.x, y: pos.y - 6 });
+        t.textContent = "+" + (dark ? 3 : names.length) + " 구조!";
+        later(560, () => ball.remove());
+        later(1400, () => t.remove());
+      });
+    });
+  }
+  // drawBoard 안에서: 걷는 중인 말, 막 놓이는 포켓몬에 움직임 붙이기
+  function animatePiece(piece, p, finalX, finalY) {
+    const w = fxState.walks.get(p.id);
+    if (!w) return;
+    const t = performance.now() - w.start;
+    if (t >= w.dur + 200) return fxState.walks.delete(p.id);
+    const frames = w.path.map((id, k) => {
+      const pt = k === w.path.length - 1 ? { x: finalX, y: finalY } : k === 0 ? pawnPos(id) : D.nodes[id];
+      return { left: pt.x + "%", top: pt.y + "%" };
+    });
+    piece.animate(frames, { duration: Math.max(1, w.dur), easing: "linear" }).currentTime = Math.min(t, w.dur);
+    const img = piece.querySelector(".pawn");
+    if (w.dur && t < w.dur)
+      img.animate(
+        [{ transform: "translateY(0)" }, { transform: "translateY(-16%)" }, { transform: "translateY(0)" }],
+        { duration: STEP_MS, iterations: w.path.length - 1, easing: "ease-out" },
+      ).currentTime = t;
+    // 도착: '탁' 하고 살짝 눌렸다가 돌아온다
+    const land = img.animate(
+      [{ transform: "scale(1.14, 0.82)" }, { transform: "scale(0.96, 1.05)" }, { transform: "scale(1)" }],
+      { duration: 200, easing: "ease-out" },
+    );
+    land.currentTime = t - w.dur;
+  }
+  function animateDrop(img, key) {
+    const start = fxState.drops.get(key);
+    if (start === undefined) return;
+    const t = performance.now() - start;
+    if (t > 600) return fxState.drops.delete(key);
+    img.animate(
+      [
+        { transform: "translateY(-140%) scale(1.1)", opacity: 0 },
+        { transform: "translateY(0) scale(1.18, 0.78)", opacity: 1, offset: 0.65 },
+        { transform: "translateY(0) scale(0.95, 1.06)", offset: 0.85 },
+        { transform: "translateY(0) scale(1)" },
+      ],
+      { duration: 460, easing: "ease-in", fill: "backwards" },
+    ).currentTime = t;
+    if (t < 300) later(300 - t, () => img.isConnected && puff(img));
+  }
+  // 포켓몬이 놓일 때 발밑 먼지
+  function puff(img) {
+    const b = $("board").getBoundingClientRect(),
+      r = img.getBoundingClientRect();
+    const el = fxEl("dust", { x: ((r.left + r.width / 2 - b.left) / b.width) * 100, y: ((r.bottom - b.top) / b.height) * 100 });
+    later(500, () => el.remove());
   }
   // 서버 상태가 바뀐 내용을 보고 소리를 낸다 (모든 기기에서 같은 순간에)
   function soundFromChange(a, b) {
@@ -248,8 +410,8 @@
       const q = a.players[i];
       if (!q || q.id !== p.id) return;
       if (q.node !== p.node) {
-        const n = Math.max(1, Math.min(7, hops(q.node, p.node)));
-        for (let k = 0; k < n; k++) later(k * 110, () => sfx("step", 0.9));
+        const n = Math.max(1, pathBetween(q.node, p.node).length - 1);
+        for (let k = 1; k <= n; k++) later(k * STEP_MS - 40, () => sfx("step", k === n ? 1.2 : 0.8));
       }
       if (!q.carry && p.carry) later(150, () => sfx("pickup"));
       if (q.carry && !p.carry) later(150, () => sfx(b.returned > a.returned ? "deliver" : "drop"));
@@ -362,14 +524,7 @@
           : "탐사 종료"
         : p.name + "의 차례 · " + g.round + "라운드",
     );
-    text(
-      "progress",
-      "봉인 " +
-        g.returned +
-        "/8 · 다크라이 " +
-        g.regions.filter((r) => r.dark).length +
-        "/6",
-    );
+    renderGauges(g);
     show("hostControls", host);
     const titles = {
       roll: "이동 주사위",
@@ -390,16 +545,11 @@
     $("turnPanel").classList.toggle("my-turn", mine && !ended);
     $("skip").disabled = ended;
     const instructions = {
-      roll: "주사위를 던지면 출현 카드를 먼저 확인합니다.",
-      card:
-        g.roll === 6
-          ? "6이 나와 출현 카드를 뽑지 않습니다."
-          : "카드의 지역에 폭주 포켓몬이 출현했습니다.",
-      move:
-        g.moves +
-        "칸 이내의 빛나는 칸을 선택하세요. 현재 위치를 선택해 머물 수도 있어요.",
-      act: "배틀하거나 봉인조각을 회수한 뒤 차례를 마치세요.",
-      end: "결과를 확인한 뒤 다음 친구에게 차례를 넘겨주세요.",
+      roll: "주사위를 던져요!",
+      card: g.roll === 6 ? "6! 이번엔 출현 없음" : "카드 지역에 폭주 포켓몬 등장!",
+      move: "빛나는 칸을 눌러 이동 (최대 " + g.moves + "칸, 제자리도 OK)",
+      act: "배틀하거나 조각을 챙기고 차례를 마쳐요.",
+      end: "결과 확인! 다음 친구에게 차례를 넘겨요.",
       won: "여덟 조각을 모은 탐사대와 파트너들이 힘을 합쳐 기라티나의 폭주를 막았습니다.",
       lost:
         g.lossReason ||
@@ -407,7 +557,7 @@
     };
     text(
       "instruction",
-      (mine || host || ended ? "" : p.name + "의 행동을 기다리는 중. ") +
+      (mine || host || ended ? "" : p.name + "의 차례예요 · ") +
         instructions[g.phase],
     );
     const own = g.players.find((o) => o.id === me?.id);
@@ -882,18 +1032,36 @@
       sfx("diceLand");
     }
     if (withCard) {
-      const im = image("card-" + g.card + ".webp", "출현 카드", "reveal-card");
+      // 뒷면이 먼저 나오고 가로로 '휙' 뒤집혀 앞면 (입체 회전 없이 가로 크기만 바꿔 폰에서도 안 깨짐)
+      const front = "assets/ghost/card-" + g.card + ".webp";
+      const im = image("card-back.webp", "출현 카드", "reveal-card");
+      const pre = new Image();
+      pre.src = front;
       $("revealCard").append(im);
-      await Promise.race([im.decode().catch(() => {}), wait(500)]);
+      await Promise.race([Promise.all([im.decode(), pre.decode()]).catch(() => {}), wait(500)]);
       if (!current()) return;
-      sfx("cardFlip");
       await im
         .animate(
           [
-            { opacity: 0, transform: "scale(.82) rotate(-7deg)" },
-            { opacity: 1, transform: "scale(1) rotate(0)" },
+            { opacity: 0, transform: "translateY(-12%) scale(.85)" },
+            { opacity: 1, transform: "translateY(0) scale(1)" },
           ],
-          { duration: 300, easing: "cubic-bezier(.2,.9,.25,1.2)" },
+          { duration: 220, easing: "ease-out" },
+        )
+        .finished.catch(() => {});
+      if (!current()) return;
+      sfx("cardFlip");
+      await im.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: 130, easing: "ease-in" }).finished.catch(() => {});
+      if (!current()) return;
+      im.src = front;
+      await im
+        .animate(
+          [
+            { transform: "scaleX(0)" },
+            { transform: "scaleX(1.08) scaleY(1.04)", offset: 0.7 },
+            { transform: "scaleX(1)" },
+          ],
+          { duration: 220, easing: "ease-out" },
         )
         .finished.catch(() => {});
       if (!current()) return;
@@ -959,6 +1127,37 @@
       turnToastTimer = setTimeout(() => show("turnToast", false), 1800);
     }
   }
+  // 진행 상황: 봉인조각 8칸, 다크라이 6칸
+  function renderGauges(g) {
+    const box = $("progress");
+    box.replaceChildren();
+    const gems = document.createElement("span");
+    gems.className = "gauge gems";
+    gems.title = "봉인 " + g.returned + "/8";
+    for (let i = 1; i <= 8; i++) {
+      const s = seal(i <= g.returned ? i : null);
+      s.classList.add("gauge-gem");
+      s.classList.toggle("off", i > g.returned);
+      gems.append(s);
+    }
+    const darks = document.createElement("span");
+    darks.className = "gauge darks";
+    const n = g.regions.filter((r) => r.dark).length;
+    darks.title = "다크라이 " + n + "/6 (6곳이면 패배)";
+    for (let i = 1; i <= 6; i++) {
+      const im = image("darkrai.webp", "", "gauge-dark");
+      im.classList.toggle("on", i <= n);
+      darks.append(im);
+    }
+    const label = (t) => {
+      const el = document.createElement("small");
+      el.textContent = t;
+      return el;
+    };
+    gems.prepend(label("봉인"));
+    darks.prepend(label("다크라이"));
+    box.append(gems, darks);
+  }
   function seal(number) {
     const el = document.createElement("span");
     el.className = "seal-token";
@@ -1013,10 +1212,17 @@
       el.className = "cluster";
       el.style.left = n.encounterX + "%";
       el.style.top = n.encounterY + "%";
-      r.mobs.forEach((name) => {
-        if (mobs[name]) el.append(image(mobs[name], name, "mob"));
+      r.mobs.forEach((name, k) => {
+        if (!mobs[name]) return;
+        const im = image(mobs[name], name, "mob");
+        el.append(im);
+        animateDrop(im, r.id + ":" + k);
       });
-      if (r.dark) el.append(image("darkrai.webp", "다크라이", "darkrai"));
+      if (r.dark) {
+        const dk = image("darkrai.webp", "다크라이", "darkrai");
+        el.append(dk);
+        animateDrop(dk, r.id + ":dark");
+      }
       if (r.fragment || r.hidden) {
         const gem = seal(r.hidden ? null : r.fragment);
         gem.classList.add("map-seal");
@@ -1039,9 +1245,10 @@
       const x =
         (n.pawnX ?? n.x) + ((j % 3) - (Math.min(group.length, 3) - 1) / 2) * 4;
       const y = (n.pawnY ?? n.y) + Math.floor(j / 3) * 2.5;
-      piece.style.left =
-        Math.max(size / 2 + 0.5, Math.min(100 - size / 2 - 0.5, x)) + "%";
-      piece.style.top = Math.min(100 - size * 0.15 - 0.5, y) + "%";
+      const fx = Math.max(size / 2 + 0.5, Math.min(100 - size / 2 - 0.5, x)),
+        fy = Math.min(100 - size * 0.15 - 0.5, y);
+      piece.style.left = fx + "%";
+      piece.style.top = fy + "%";
       piece.append(image(pawn(p), p.name, "pawn"));
       if (p.carry) {
         const badge = seal(p.carry);
@@ -1050,6 +1257,7 @@
         piece.append(badge);
       }
       $("pieces").append(piece);
+      animatePiece(piece, p, fx, fy);
     });
   }
   function settleReveal() {
