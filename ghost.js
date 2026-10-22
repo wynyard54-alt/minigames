@@ -104,6 +104,22 @@ class Expedition {
       this.phase = "lost";
       this.note("다크라이가 6곳을 장악했습니다. 다음 탐사에서 다시 도전해요.");
     }
+    this.checkSoloLoss();
+  }
+  checkSoloLoss() {
+    if (this.players.length !== 1 || ["won", "lost"].includes(this.phase))
+      return;
+    const blocked = this.regions.find(
+      (r) =>
+        r.dark &&
+        (r.fragment || (this.active.node === r.id && this.active.carry)),
+    );
+    if (!blocked) return;
+    this.phase = "lost";
+    this.lossReason =
+      D.nodes[blocked.id].name +
+      "의 봉인조각을 회수할 수 없어 탐사를 종료합니다. 1인 플레이에서는 다크라이를 해결할 수 없어요.";
+    this.note(this.lossReason);
   }
   reachable() {
     const p = this.active;
@@ -178,6 +194,7 @@ class Expedition {
       }
       p.node = req.node;
       this.phase = "act";
+      this.checkSoloLoss();
       return;
     }
     if (!["act", "move"].includes(this.phase))
@@ -196,6 +213,7 @@ class Expedition {
       r.fragment = p.carry;
       r.revealed = true;
       p.carry = null;
+      this.checkSoloLoss();
       return;
     }
     if (req.type === "deliver") {
@@ -271,6 +289,7 @@ class Expedition {
       players: this.players.map((p) => ({ ...p, stage: this.stage(p) })),
       turn: this.turn,
       phase: this.phase,
+      lossReason: this.lossReason || null,
       moves: this.moves,
       roll: this.roll,
       card: this.card,
@@ -299,16 +318,14 @@ function attach(io) {
       .trim()
       .slice(0, 10) || "트레이너";
   const publish = (r) =>
-    ns
-      .to(r.code)
-      .emit("update", {
-        code: r.code,
-        players: r.players.map(({ key, socket, ...p }) => ({
-          ...p,
-          connected: !!socket,
-        })),
-        game: r.game ? r.game.snapshot() : null,
-      });
+    ns.to(r.code).emit("update", {
+      code: r.code,
+      players: r.players.map(({ key, socket, ...p }) => ({
+        ...p,
+        connected: !!socket,
+      })),
+      game: r.game ? r.game.snapshot() : null,
+    });
   ns.on("connection", (s) => {
     s.on("create", (_, cb) => {
       let code;
@@ -396,10 +413,10 @@ function attach(io) {
       }
       if (d?.type === "start" && host && !r.game) {
         if (
-          r.players.length < 2 ||
+          r.players.length < 1 ||
           r.players.some((p) => !p.ready || !p.socket)
         )
-          error = "2~6명이 모두 준비하면 시작할 수 있어요.";
+          error = "1~6명이 모두 준비하면 시작할 수 있어요.";
         else
           r.game = new Expedition(
             r.players.map(({ id, name, partner }) => ({ id, name, partner })),

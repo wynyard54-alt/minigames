@@ -20,6 +20,19 @@ const connect = (url) =>
     const host = await connect(url + "/ghost");
     const r = await ack(host, "create", {});
     assert(r.ok);
+    // 0명은 시작 금지, 준비한 1명은 시작 가능.
+    const soloHost = await connect(url + "/ghost");
+    const soloRoom = await ack(soloHost, "create", {});
+    assert((await ack(soloHost, "command", { type: "start" })).error);
+    const soloPlayer = await connect(url + "/ghost");
+    assert(
+      (await ack(soloPlayer, "join", { code: soloRoom.code, name: "혼자" })).ok,
+    );
+    assert((await ack(soloHost, "command", { type: "start" })).error);
+    assert((await ack(soloPlayer, "command", { type: "ready" })).ok);
+    assert((await ack(soloHost, "command", { type: "start" })).ok);
+    assert((await ack(soloPlayer, "command", { type: "roll" })).ok);
+    assert((await ack(soloHost, "command", { type: "close" })).ok);
     const ps = [];
     for (let i = 0; i < 6; i++) {
       const s = await connect(url + "/ghost");

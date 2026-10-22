@@ -174,7 +174,10 @@
     show("start", host);
     show("close", host);
     show("ready", !host);
-    if (host) qr(room.code);
+    if (host) {
+      qr(room.code);
+      $("joinHere").href = "ghost.html?room=" + room.code;
+    }
     $("people").replaceChildren();
     room.players.forEach((p) => {
       const el = document.createElement("div");
@@ -195,7 +198,7 @@
       $("people").append(el);
     });
     $("start").disabled =
-      room.players.length < 2 ||
+      room.players.length < 1 ||
       room.players.some((p) => !p.ready || !p.connected);
     const mine = room.players.find((p) => p.id === me?.id);
     text("ready", mine?.ready ? "준비 취소" : "준비하기");
@@ -241,7 +244,9 @@
       act: "지역 행동",
       end: "배틀 결과",
       won: "기라티나가 평온을 되찾았어요!",
-      lost: "다크라이가 6곳을 장악했어요",
+      lost: g.lossReason
+        ? "봉인조각 회수 불가 · 탐사 종료"
+        : "다크라이가 6곳을 장악했어요",
     };
     text("phaseTitle", titles[g.phase]);
     $("skip").disabled = ended;
@@ -257,7 +262,9 @@
       act: "배틀하거나 봉인조각을 회수한 뒤 차례를 마치세요.",
       end: "결과를 확인한 뒤 다음 친구에게 차례를 넘겨주세요.",
       won: "여덟 조각을 모은 탐사대와 파트너들이 힘을 합쳐 기라티나의 폭주를 막았습니다.",
-      lost: "구조한 포켓몬들은 안전하게 보호됐어요. 새로운 탐사로 다시 도전해요.",
+      lost:
+        g.lossReason ||
+        "구조한 포켓몬들은 안전하게 보호됐어요. 새로운 탐사로 다시 도전해요.",
     };
     text(
       "instruction",
