@@ -581,7 +581,7 @@
       card: g.roll === 6 ? "6! 이번엔 출현 없음" : "카드 지역에 폭주 포켓몬 등장!",
       move: "빛나는 칸을 눌러 이동 (최대 " + g.moves + "칸, 제자리도 OK)",
       act: "배틀하거나 조각을 챙기고 차례를 마쳐요.",
-      end: "결과 확인! 다음 친구에게 차례를 넘겨요.",
+      end: "배틀 완료! 조각을 챙긴 뒤 차례를 마칠 수 있어요.",
       won: "여덟 조각을 모은 탐사대와 파트너들이 힘을 합쳐 기라티나의 폭주를 막았습니다.",
       lost:
         g.lossReason ||
@@ -610,8 +610,8 @@
     if (g.phase === "roll") add("🎲 이동 주사위 던지기", "roll");
 
     const r = g.regions.find((r) => r.id === p.node);
-    if (g.phase === "act") {
-      if (r?.mobs.length) {
+    if (["act", "end"].includes(g.phase)) {
+      if (g.phase === "act" && !g.battle && r?.mobs.length) {
         const helpers = g.players.filter(
           (o) => o.node === p.node && o.id !== p.id,
         );

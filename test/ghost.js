@@ -114,6 +114,39 @@ function run() {
   g.next();
   assert.equal(g.battle, null);
   assert.equal(g.dice.length, 0);
+  // 줍기/배틀 순서를 바꿔도 모두 가능하며, 줍기로 재공격을 열 수 없다.
+  for (const first of ["pickup", "battle"]) {
+    for (const rng of [0.1, 0.99]) {
+      const e = new Expedition(team(), () => rng);
+      e.phase = "act"; e.active.node = "r1";
+      e.regions[0].mobs = ["가", "나"]; e.regions[0].fragment = 1;
+      assert.equal(e.action("a", { type: first }), undefined);
+      assert.equal(e.action("a", { type: first === "pickup" ? "battle" : "pickup" }), undefined);
+      assert.equal(e.active.carry, 1);
+      assert.equal(e.phase, "end");
+      assert(e.battle);
+      const result = JSON.stringify(e.battle);
+      assert(e.action("a", { type: "battle" }), "한 차례 재공격 금지");
+      assert.equal(e.action("a", { type: "drop" }), undefined);
+      assert.equal(e.action("a", { type: "pickup" }), undefined);
+      assert.equal(e.phase, "end");
+      assert(e.action("a", { type: "battle" }), "내려놓기/다시 줍기로 공격 횟수 초기화 금지");
+      assert.equal(JSON.stringify(e.battle), result);
+      assert.equal(e.action("b", { type: "pickup" }), "지금은 내 차례가 아니에요.");
+      assert.equal(e.action("a", { type: "end" }), undefined);
+      assert.equal(e.turn, 1);
+      assert.equal(e.battle, null);
+    }
+  }
+  // 다크라이 해결 직후 같은 차례에 조각 회수.
+  g = new Expedition(team(), () => 0.4);
+  g.phase = "act"; g.active.node = g.players[1].node = "r1";
+  g.regions[0].dark = true; g.regions[0].mobs = ["가", "나", "다"]; g.regions[0].fragment = 1;
+  assert.equal(g.action("a", { type: "battle" }), undefined);
+  assert(!g.regions[0].dark);
+  assert.equal(g.action("a", { type: "pickup" }), undefined);
+  assert.equal(g.active.carry, 1);
+
   // 다크라이 여섯 곳 패배, 조각 순서와 전원 귀환 승리.
   g = new Expedition(team(), () => 0.1);
   for (let i = 0; i < 5; i++) {

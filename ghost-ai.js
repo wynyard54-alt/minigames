@@ -17,13 +17,12 @@ function decide(g) {
   const p = g.players[g.turn];
   if (!p?.ai || ['won', 'lost'].includes(g.phase)) return null;
   if (g.phase === 'roll') return { type: 'roll' };
-  if (g.phase === 'end') return { type: 'end' };
   const region = g.regions.find(r => r.id === p.node);
   const allies = g.players.filter(o => o.id !== p.id && o.node === p.node);
   const ordered = D.difficulties[g.difficulty || 'hard'].ordered;
   const canTake = r => r.fragment && (!ordered || r.fragment === g.returned + 1);
-  if (g.phase === 'act') {
-    if (region?.mobs.length && (!region.dark || allies.length))
+  if (['act', 'end'].includes(g.phase)) {
+    if (g.phase === 'act' && !g.battle && region?.mobs.length && (!region.dark || allies.length))
       return { type: 'battle', helper: allies[0]?.id };
     if (p.node === 'camp' && p.carry && (!ordered || p.carry === g.returned + 1))
       return { type: 'deliver' };

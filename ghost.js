@@ -200,14 +200,15 @@ class Expedition {
       this.checkSoloLoss();
       return;
     }
-    if (!["act", "move"].includes(this.phase))
+    if (!["act", "move", "end"].includes(this.phase))
       return "먼저 주사위와 출현 카드를 확인하세요.";
     if (req.type === "pickup") {
       if (!r || !r.fragment || p.carry) return "가져갈 봉인조각이 없어요.";
       p.carry = r.fragment;
       r.fragment = null;
       r.revealed = true;
-      this.phase = "act";
+      // 배틀 결과를 유지해 줍기 후 재공격할 수 없게 한다.
+      if (this.phase !== "end") this.phase = "act";
       return;
     }
     if (req.type === "drop") {
@@ -232,7 +233,7 @@ class Expedition {
       this.checkWin();
       return;
     }
-    if (req.type === "battle" && this.phase === "act") {
+    if (req.type === "battle" && this.phase === "act" && !this.battle) {
       if (!r || !r.mobs.length) return "이곳에는 폭주 포켓몬이 없어요.";
       const allies = this.players.filter(
         (o) => o.node === p.node && o.id !== p.id,

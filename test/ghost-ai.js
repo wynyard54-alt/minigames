@@ -21,6 +21,12 @@ g.active.carry = null; g.phase = 'act'; g.active.node = 'r2';
 g.regions[1].fragment = 8; g.regions[1].revealed = true;
 assert.equal(decide(g.snapshot()).type, 'end', '어려움은 다음 번호 먼저 회수');
 g.difficulty = 'easy'; assert.equal(decide(g.snapshot()).type, 'pickup');
+// AI도 배틀 결과 이후 조각을 회수하고, 재공격 없이 넘긴다.
+g.phase = 'end'; g.battle = { success: false }; g.regions[1].mobs = ['가'];
+assert.equal(decide(g.snapshot()).type, 'pickup');
+g.action('a', decide(g.snapshot()));
+assert.equal(decide(g.snapshot()).type, 'end');
+g.active.carry = null;
 // 공개되지 않은 번호가 다른 게임도 같은 결정을 내린다.
 g.phase = 'move'; g.moves = 5; g.active.node = 'camp';
 g.regions.forEach(r => r.revealed = false);
