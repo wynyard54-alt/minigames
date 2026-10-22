@@ -6,6 +6,7 @@
     host = params.get("host") === "1";
   const socket = io("/ghost"),
     A = "assets/ghost/";
+  const revealFlights = new Set();
   let room = null,
     me = null,
     mobs = {},
@@ -422,6 +423,12 @@
   function cancelReveal() {
     revealVersion++;
     revealing = false;
+    for (const flight of revealFlights) {
+      flight.animation.cancel();
+      flight.element.remove();
+    }
+    revealFlights.clear();
+    $("revealDice").style.visibility = "";
     // 같은 공개 무대를 재사용하므로 지난 비행의 transform도 반드시 지운다.
     $("revealDice")
       .getAnimations({ subtree: true })
@@ -446,33 +453,75 @@
     const cube = document.createElement("div");
     cube.className = "die-cube";
     cube.setAttribute("aria-hidden", "true");
-    let faces;
-    if (typeof v === "number") {
-      const rest = [1, 2, 3, 4, 5, 6].filter((n) => n !== v && n !== 7 - v);
-      faces = [
-        v,
-        7 - v,
-        rest[0],
-        7 - rest[0],
-        rest.find((n) => n !== rest[0] && n !== 7 - rest[0]),
-        0,
-      ];
-      faces[5] = 7 - faces[4];
-    } else if (v === "?") {
-      faces = ["?", "—", "✦", "—", "◆", "✦"];
-    } else {
-      const rest = ["✦", "✦", "◆", "—", "—", "—"];
-      rest.splice(rest.indexOf(v), 1);
-      faces = [v, ...rest];
-    }
-    faces.forEach((value, index) => {
-      const face = document.createElement("span");
-      face.className = "die-face face-" + index;
-      face.textContent = value;
-      if (value === "◆") face.style.color = "#ba274d";
-      if (value === "✦") face.style.color = "#2476a8";
-      cube.append(face);
+    // 입체감을 SVG 한 장으로 그려 모바일의 3D 합성·투영 왜곡을 피한다.
+    const ns = "http://www.w3.org/2000/svg",
+      svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 84 84");
+    svg.setAttribute("focusable", "false");
+    const shape = (tag, attrs) => {
+      const el = document.createElementNS(ns, tag);
+      for (const [key, value] of Object.entries(attrs))
+        el.setAttribute(key, value);
+      svg.append(el);
+      return el;
+    };
+    shape("ellipse", {
+      cx: 43,
+      cy: 77,
+      rx: 30,
+      ry: 4,
+      fill: "#061322",
+      opacity: ".25",
     });
+    shape("path", {
+      d: "M12 19 L24 7 Q26 5 30 5 H72 Q79 5 79 12 V60 Q79 64 75 67 L63 76 Z",
+      fill: "#9aa7b7",
+      stroke: "#6e7e93",
+      "stroke-width": 1.5,
+    });
+    shape("path", {
+      d: "M12 19 L24 7 Q26 5 30 5 H72 Q76 5 78 8 L64 22 Z",
+      fill: "#fafbf4",
+      stroke: "#d9dedf",
+      "stroke-width": 1,
+    });
+    shape("rect", {
+      x: 7,
+      y: 17,
+      width: 58,
+      height: 59,
+      rx: 11,
+      fill: "#dce1e4",
+      stroke: "#8c9aaa",
+      "stroke-width": 1.5,
+    });
+    shape("path", {
+      d: "M18 20 H54 Q62 20 62 29 V60 Q60 45 48 34 Q34 22 16 24 Z",
+      fill: "#fffef8",
+      opacity: ".72",
+    });
+    shape("path", {
+      d: "M10 55 V64 Q10 73 20 73 H52",
+      fill: "none",
+      stroke: "#bdc7d0",
+      "stroke-width": 2,
+    });
+    shape("circle", { cx: 35, cy: 11, r: 1.6, fill: "#8794a5" });
+    shape("circle", { cx: 49, cy: 11, r: 1.6, fill: "#8794a5" });
+    shape("ellipse", { cx: 72, cy: 36, rx: 1.5, ry: 2.4, fill: "#5c6f86" });
+    shape("ellipse", { cx: 72, cy: 49, rx: 1.5, ry: 2.4, fill: "#5c6f86" });
+    const result = shape("text", {
+      x: 36,
+      y: 48,
+      "text-anchor": "middle",
+      "dominant-baseline": "central",
+      fill: v === "◆" ? "#ba274d" : v === "✦" ? "#2476a8" : "#21334c",
+      "font-size": typeof v === "number" ? 30 : 28,
+      "font-family": "system-ui, sans-serif",
+      "font-weight": 800,
+    });
+    result.textContent = v;
+    cube.append(svg);
     d.append(cube);
     unit.append(d);
     const label = document.createElement("small");
@@ -569,17 +618,72 @@
   async function flyTo(el, target) {
     const from = el.getBoundingClientRect(),
       to = target.getBoundingClientRect();
-    if (!from.width || !to.width) return;
-    const animation = el.animate(
+    if (!from.width || !from.height || !to.width || !to.height) return;
+    // 비행용 복제본만 움직인다. 결과 칸과 공개 무대에는 transform을 남기지 않는다.
+    const carrier = document.createElement("div");
+    carrier.className = "reveal-flight";
+    carrier.classList.toggle("other-flight", !!el.closest(".other-die"));
+    carrier.setAttribute("aria-hidden", "true");
+    Object.assign(carrier.style, {
+      left: from.left + "px",
+      top: from.top + "px",
+      width: from.width + "px",
+      height: from.height + "px",
+    });
+    carrier.style.setProperty(
+      "--die-size",
+      getComputedStyle(el).getPropertyValue("--die-size"),
+    );
+    const clone = el.cloneNode(true);
+    clone.removeAttribute("id");
+    clone.classList.remove("rolling");
+    clone
+      .querySelectorAll(".rolling")
+      .forEach((el) => el.classList.remove("rolling"));
+    Object.assign(clone.style, {
+      width: from.width + "px",
+      height: from.height + "px",
+      maxWidth: "none",
+      maxHeight: "none",
+      visibility: "visible",
+      transform: "none",
+      margin: "0",
+    });
+    carrier.append(clone);
+    document.body.append(carrier);
+    el.style.visibility = "hidden";
+    const scale = Math.min(to.width / from.width, to.height / from.height);
+    const dx = to.left + (to.width - from.width * scale) / 2 - from.left,
+      dy = to.top + (to.height - from.height * scale) / 2 - from.top;
+    const animation = carrier.animate(
       [
         { transform: "translate(0,0) scale(1)" },
-        {
-          transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})`,
-        },
+        { transform: `translate(${dx}px,${dy}px) scale(${scale})` },
       ],
-      { duration: 480, easing: "cubic-bezier(.3,.05,.2,1)", fill: "forwards" },
+      { duration: 460, easing: "cubic-bezier(.3,.05,.2,1)", fill: "forwards" },
     );
+    const flight = { element: carrier, animation };
+    revealFlights.add(flight);
     await animation.finished.catch(() => {});
+    revealFlights.delete(flight);
+    carrier.remove();
+  }
+  async function flyDice() {
+    const sources = Array.from($("revealDice").querySelectorAll(".die-unit"));
+    const targets = Array.from($("dice").querySelectorAll(".die-unit"));
+    const flights = sources.map((source) => {
+      const target = targets.find(
+        (el) => el.dataset.owner === source.dataset.owner,
+      );
+      return target
+        ? flyTo(
+            source.querySelector(".die-cube"),
+            target.querySelector(".die-cube"),
+          )
+        : Promise.resolve();
+    });
+    $("revealDice").style.visibility = "hidden";
+    await Promise.all(flights);
   }
   async function playReveal(g, withCard) {
     const version = ++revealVersion;
@@ -587,7 +691,7 @@
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     revealing = true;
     if (!host && g.players[g.turn].id === me?.id)
-      $("board").scrollIntoView({ block: "start", behavior: "smooth" });
+      $("board").scrollIntoView({ block: "start", behavior: "instant" });
     $("tableTray").classList.add("revealing");
     if (g.battle)
       $("revealDice").replaceChildren(
@@ -621,16 +725,20 @@
     if (withCard) {
       const im = image("card-" + g.card + ".webp", "출현 카드", "reveal-card");
       $("revealCard").append(im);
-      await im.animate(
-        [
-          { opacity: 0, transform: "scale(.6) rotateY(-55deg)" },
-          { opacity: 1, transform: "scale(1) rotateY(0)" },
-        ],
-        { duration: 300, easing: "cubic-bezier(.2,.9,.25,1.2)" },
-      ).finished;
+      await Promise.race([im.decode().catch(() => {}), wait(500)]);
+      if (!current()) return;
+      await im
+        .animate(
+          [
+            { opacity: 0, transform: "scale(.82) rotate(-7deg)" },
+            { opacity: 1, transform: "scale(1) rotate(0)" },
+          ],
+          { duration: 300, easing: "cubic-bezier(.2,.9,.25,1.2)" },
+        )
+        .finished.catch(() => {});
       if (!current()) return;
     }
-    await flyTo($("revealDice"), $("dice"));
+    await flyDice();
     if (!current()) return;
     if (withCard) {
       await wait(600);
@@ -783,6 +891,24 @@
       $("pieces").append(piece);
     });
   }
+  function settleReveal() {
+    if (!revealing) return;
+    cancelReveal();
+    render();
+  }
+  // 주소창 높이·화면 회전이 바뀌면 잘못된 옛 좌표로 날리지 않고 결과 자리에 정착한다.
+  window.addEventListener("resize", settleReveal);
+  window.visualViewport?.addEventListener("resize", settleReveal);
+  const settleFlying = () => {
+    if (revealFlights.size) settleReveal();
+  };
+  window.addEventListener("scroll", settleFlying, { passive: true });
+  window.visualViewport?.addEventListener("scroll", settleFlying, {
+    passive: true,
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) settleReveal();
+  });
   if (window.ResizeObserver)
     new ResizeObserver((entries) => {
       document.body.style.setProperty(

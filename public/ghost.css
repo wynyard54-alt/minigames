@@ -499,26 +499,38 @@ details p {
   pointer-events: none;
 }
 .reveal-stage {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  max-width: 94vw;
-}
-.reveal-stage > * {
-  transform-origin: 0 0;
+  gap: 12px;
+  width: min(94vw, 460px);
+  height: min(64svh, 330px);
 }
 #revealDice {
   display: flex;
+  width: max-content;
+  justify-self: center;
+  align-items: center;
   --die-size: 66px;
 }
+#revealCard {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
 .reveal-card {
-  width: 160px;
-  max-height: 42svh;
+  width: min(160px, 27.2svh);
+  height: min(248px, 42svh);
   object-fit: contain;
   border-radius: 9px;
-  transform-origin: 0 0;
   filter: drop-shadow(0 8px 12px #0008);
+}
+.reveal-flight {
+  position: fixed;
+  z-index: 42;
+  pointer-events: none;
+  transform-origin: 0 0;
 }
 @media (max-width: 850px) {
   main {
@@ -611,73 +623,40 @@ details p {
     padding-bottom: 150px;
   }
 }
-/* 여섯 면을 실제로 배치한 CSS 입체 주사위. 결과 판정은 서버 값 그대로다. */
+/* 주사위의 입체 면은 SVG 한 장, 굴림은 평면 회전으로 유지한다. */
 .die-space {
   width: calc(var(--die-size) + 18px);
   height: calc(var(--die-size) + 20px);
-  perspective: 340px;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 .die-cube {
-  position: relative;
   width: var(--die-size);
   height: var(--die-size);
-  transform-style: preserve-3d;
-  transform: rotateX(-12deg) rotateY(-16deg);
+  flex-shrink: 0;
+  transform: none;
 }
-.die-face {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  border: 2px solid #f3f3e9;
-  color: #192940;
-  background: radial-gradient(
-    ellipse at 25% 20%,
-    #fffef9,
-    #c6cbd3 75%,
-    #98a2b2
-  );
-  box-shadow: inset 0 0 7px #77859c66;
-  font-size: calc(var(--die-size) * 0.56);
-  font-weight: 800;
-  backface-visibility: hidden;
-}
-.face-0 {
-  transform: translateZ(calc(var(--die-size) / 2));
-}
-.face-1 {
-  transform: rotateY(180deg) translateZ(calc(var(--die-size) / 2));
-}
-.face-2 {
-  transform: rotateY(90deg) translateZ(calc(var(--die-size) / 2));
-}
-.face-3 {
-  transform: rotateY(-90deg) translateZ(calc(var(--die-size) / 2));
-}
-.face-4 {
-  transform: rotateX(90deg) translateZ(calc(var(--die-size) / 2));
-}
-.face-5 {
-  transform: rotateX(-90deg) translateZ(calc(var(--die-size) / 2));
+.die-cube svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .die-cube.rolling {
-  animation: cube-roll 0.85s ease-out;
+  animation: die-roll 0.8s ease-out;
 }
-@keyframes cube-roll {
+@keyframes die-roll {
   0% {
-    transform: translateY(-45px) rotateX(-640deg) rotateY(-530deg);
+    transform: translateY(-24px) rotate(-290deg);
   }
-  60% {
-    transform: translateY(0) rotateX(20deg) rotateY(-35deg);
+  55% {
+    transform: translateY(2px) rotate(20deg);
   }
-  80% {
-    transform: translateY(-8px) rotateX(-20deg) rotateY(-10deg);
+  78% {
+    transform: translateY(-6px) rotate(-9deg);
   }
   100% {
-    transform: rotateX(-12deg) rotateY(-16deg);
+    transform: translateY(0) rotate(0);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -836,4 +815,53 @@ details p {
 }
 #outcomeError:empty {
   display: none;
+}
+
+.table-tray {
+  align-items: start;
+}
+.tray-slot {
+  height: 172px;
+  overflow: hidden;
+}
+#card {
+  height: 112px;
+  min-height: 0;
+}
+#dice {
+  height: 88px;
+  min-height: 0;
+}
+#battleNote,
+#battleNote:empty {
+  display: block;
+  height: 30px;
+  margin: 2px 0;
+  line-height: 15px;
+  overflow: hidden;
+}
+@media (max-width: 850px) {
+  .tray-slot {
+    height: 158px;
+  }
+  #card {
+    height: 102px;
+    min-height: 0;
+  }
+  #dice {
+    height: 72px;
+    min-height: 0;
+  }
+  .reveal-stage {
+    gap: 12px;
+  }
+  .reveal-card {
+    width: min(132px, 27.2svh);
+    height: min(204px, 42svh);
+  }
+}
+
+.reveal-flight.other-flight {
+  filter: grayscale(1);
+  opacity: 0.5;
 }
