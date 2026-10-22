@@ -29,8 +29,16 @@ const connect = (url) =>
       (await ack(soloPlayer, "join", { code: soloRoom.code, name: "혼자" })).ok,
     );
     assert((await ack(soloHost, "command", { type: "start" })).error);
+    assert((await ack(soloPlayer, "command", { type: "difficulty", difficulty: "easy" })).error);
+    assert((await ack(soloHost, "command", { type: "difficulty", difficulty: "invalid" })).error);
+    assert((await ack(soloPlayer, "command", { type: "ready" })).ok);
+    assert((await ack(soloHost, "command", { type: "difficulty", difficulty: "easy" })).ok);
+    assert.equal(ghostRooms.get(soloRoom.code).players[0].ready, false);
     assert((await ack(soloPlayer, "command", { type: "ready" })).ok);
     assert((await ack(soloHost, "command", { type: "start" })).ok);
+    assert.equal(ghostRooms.get(soloRoom.code).game.difficulty, "easy");
+    assert((await ack(soloHost, "command", { type: "difficulty", difficulty: "hard" })).error);
+    assert.equal(ghostRooms.get(soloRoom.code).game.difficulty, "easy");
     assert((await ack(soloPlayer, "command", { type: "roll" })).ok);
     assert(
       (await ack(soloPlayer, "command", { type: "reset" })).error,

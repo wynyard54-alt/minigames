@@ -9,8 +9,10 @@ function shuffle(a, rng) {
   return a;
 }
 class Expedition {
-  constructor(players, rng = Math.random) {
+  constructor(players, rng = Math.random, difficulty = "hard") {
     this.rng = rng;
+    this.difficulty = Object.hasOwn(D.difficulties, difficulty) ? difficulty : "hard";
+    this.returnedFragments = [];
     this.players = players.map((p) => ({
       ...p,
       node: "camp",
@@ -25,7 +27,9 @@ class Expedition {
     this.dice = [];
     this.battle = null;
     this.log = [
-      "기라티나의 폭주를 막으려면 봉인조각 8개를 순서대로 회수하세요.",
+      this.difficulty === "easy"
+        ? "쉬움: 봉인조각 8개를 순서에 상관없이 회수하세요."
+        : "어려움: 봉인조각 8개를 순서대로 회수하세요.",
     ];
     this.dex = [];
     this.returned = 0;
@@ -215,13 +219,15 @@ class Expedition {
       return;
     }
     if (req.type === "deliver") {
-      if (p.node !== "camp" || p.carry !== this.returned + 1)
-        return (
-          "베이스캠프에서 " + (this.returned + 1) + "번 조각부터 반납하세요."
-        );
+      if (p.node !== "camp" || !p.carry)
+        return "봉인조각을 들고 베이스캠프에서 반납하세요.";
+      if (D.difficulties[this.difficulty].ordered && p.carry !== this.returned + 1)
+        return "베이스캠프에서 " + (this.returned + 1) + "번 조각부터 반납하세요.";
+      const fragment = p.carry;
+      this.returnedFragments.push(fragment);
       this.returned++;
       p.carry = null;
-      this.note(this.returned + "번 봉인조각 반납!");
+      this.note(fragment + "번 봉인조각 반납!");
       this.checkWin();
       return;
     }
@@ -244,7 +250,8 @@ class Expedition {
         extra: null,
         success: false,
       };
-      const wins = () => this.dice.some((d) => (r.dark ? d === 2 : d < 2));
+      const wins = () => this.dice.some((d) =>
+        D.combatSymbol(d, this.difficulty) === (r.dark ? "다크라이" : "몬스터볼"));
       let success = wins();
       if (!success && !r.dark) {
         const eligible = D.partners[p.partner].zones.includes(
@@ -259,7 +266,7 @@ class Expedition {
             value: extra,
             reason: eligible ? "필드효과, 추가공격!" : "랜덤 공격 찬스!",
           };
-          success = extra < 2;
+          success = D.combatSymbol(extra, this.difficulty) === "몬스터볼";
         }
       }
       this.battle.success = success;
@@ -299,6 +306,8 @@ class Expedition {
       players: this.players.map((p) => ({ ...p, stage: this.stage(p) })),
       turn: this.turn,
       phase: this.phase,
+      difficulty: this.difficulty,
+      returnedFragments: [...this.returnedFragments],
       lossReason: this.lossReason || null,
       moves: this.moves,
       roll: this.roll,
@@ -331,6 +340,7 @@ function attach(io) {
   const publish = (r) =>
     ns.to(r.code).emit("update", {
       code: r.code,
+      difficulty: r.difficulty,
       players: r.players.map(({ key, socket, ...p }) => ({
         ...p,
         connected: !!socket,
@@ -349,6 +359,7 @@ function attach(io) {
         host: s.id,
         players: [],
         game: null,
+        difficulty: "hard",
         touched: Date.now(),
       };
       rooms.set(code, r);
@@ -422,7 +433,13 @@ function attach(io) {
         rooms.delete(r.code);
         return cb({ ok: true });
       }
-      if (d?.type === "start" && host && !r.game) {
+      if (d?.type === "difficulty" && host && !r.game) {
+        if (!Object.hasOwn(D.difficulties, d.difficulty)) error = "난이도를 다시 선택해 주세요.";
+        else if (r.difficulty !== d.difficulty) {
+          r.difficulty = d.difficulty;
+          r.players.forEach((p) => (p.ready = false));
+        }
+      } else if (d?.type === "start" && host && !r.game) {
         if (
           r.players.length < 1 ||
           r.players.some((p) => !p.ready || !p.socket)
@@ -431,6 +448,8 @@ function attach(io) {
         else
           r.game = new Expedition(
             r.players.map(({ id, name, partner }) => ({ id, name, partner })),
+            Math.random,
+            r.difficulty,
           );
       } else if (
         d?.type === "reset" &&

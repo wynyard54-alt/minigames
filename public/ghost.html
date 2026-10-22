@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261022-story" />
+    <link rel="stylesheet" href="ghost.css?v=20261022-difficulty" />
   </head>
   <body>
     <header>
@@ -65,6 +65,14 @@
           </p>
           <div id="people"></div>
         </div>
+        <section class="difficulty-panel" aria-labelledby="difficultyTitle">
+          <h3 id="difficultyTitle">난이도</h3>
+          <div id="difficultyChoices" class="host-only" role="group" aria-label="난이도 선택">
+            <button id="difficultyEasy" type="button" class="secondary" aria-pressed="false">쉬움</button>
+            <button id="difficultyHard" type="button" class="secondary" aria-pressed="true">어려움</button>
+          </div>
+          <p id="difficultyDescription" role="status"></p>
+        </section>
         <div id="choices"></div>
         <button id="ready" class="big hidden">준비!</button>
         <div id="rulesLobby" class="gl-rules"></div>
@@ -81,7 +89,7 @@
     <main id="game" class="hidden">
       <section class="board-panel">
         <div class="status">
-          <strong id="turn"></strong><span id="progress"></span>
+          <span id="gameDifficulty" class="difficulty-badge"></span><strong id="turn"></strong><span id="progress"></span>
         </div>
         <div id="board">
           <img
@@ -148,7 +156,7 @@
             조각 회수 → 차례 마치기.
           </p>
           <p>
-            구조 주사위는 몬스터볼 2면, 다크라이 1면, 빈 면 3면입니다. 일반
+            <span id="diceRules">구조 주사위는 몬스터볼 2면, 다크라이 1면, 빈 면 3면입니다.</span> 일반
             배틀은 몬스터볼, 다크라이 배틀은 다크라이 그림이 나오면 성공입니다.
             같은 지역 두 명이 함께 공격하면 주사위 최대 2개. 다크라이는 두 명
             필수이며 해결하면 아래 3마리도 모두 구조합니다.
@@ -158,8 +166,7 @@
             다크라이 지역에 출현하면 지역 번호 순서로 다음 빈 지역에 출현합니다.
           </p>
           <p>
-            조각은 방문하면 번호 공개, 한 명당 1개 운반. 캠프에서 1~8번 순서대로
-            반납하며, 모두 돌아오면 승리합니다. 다크라이가 있는 지역에서는 조각
+            조각은 방문하면 번호 공개, 한 명당 1개 운반. <span id="fragmentRules">캠프에서 1~8번 순서대로 반납하며,</span> 모두 돌아오면 승리합니다. 다크라이가 있는 지역에서는 조각
             운반자가 나갈 수 없습니다. 조각이 없는 지역에 내려놓으면 다른
             플레이어가 자기 차례에 가져갈 수 있습니다.
           </p>
@@ -207,8 +214,8 @@
       </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="ghost-data.js"></script>
+    <script src="ghost-data.js?v=20261022-difficulty"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261022-story"></script>
+    <script src="ghost-client.js?v=20261022-difficulty"></script>
   </body>
 </html>

@@ -139,6 +139,44 @@ function run() {
   assert.equal(g.phase, "won");
   assert.equal(g.stage({ ...g.players[1], partner: 3, rescues: 3 }), 0);
   assert.equal(g.stage({ ...g.players[1], partner: 3, rescues: 6 }), 1);
+  // 난이도마다 주사위 6면을 전부 판정: 쉬움 3/6, 어려움 2/6, 다크라이 각 1/6.
+  for (const difficulty of ["easy", "hard"]) {
+    let ordinary = 0, darkrai = 0;
+    for (let face = 0; face < 6; face++) {
+      for (const dark of [false, true]) {
+        const e = new Expedition(team(), () => 0.9, difficulty);
+        e.phase = "act";
+        e.active.node = e.players[1].node = "r1";
+        e.regions[0].mobs = dark ? ["가", "나", "다"] : ["가"];
+        e.regions[0].dark = dark;
+        e.rng = () => (face + 0.1) / 6;
+        assert.equal(e.action("a", { type: "battle" }), undefined);
+        const expected = D.combatSymbol(face, difficulty) === (dark ? "다크라이" : "몬스터볼");
+        assert.equal(e.battle.success, expected);
+        if (e.battle.success) dark ? darkrai++ : ordinary++;
+      }
+    }
+    assert.equal(ordinary, difficulty === "easy" ? 3 : 2);
+    assert.equal(darkrai, 1);
+    const e = new Expedition(team(), () => 0.9, difficulty);
+    e.phase = "act"; e.active.node = "r8"; e.regions[7].mobs = ["갸라도스"];
+    const rolls = [0.99, 2.1 / 6]; e.rng = () => rolls.shift();
+    e.action("a", { type: "battle" });
+    assert.equal(e.battle.success, difficulty === "easy", "추가공격에도 선택한 주사위 적용");
+  }
+  g = new Expedition(team(), () => 0.9, "easy");
+  g.phase = "act";
+  assert(g.action("a", { type: "deliver" }), "빈손 반납 금지");
+  for (const id of [8, 3, 6, 1, 7, 2, 5, 4]) {
+    g.active.carry = id;
+    assert.equal(g.action("a", { type: "deliver" }), undefined);
+    assert(g.log.includes(id + "번 봉인조각 반납!"));
+  }
+  assert.equal(g.phase, "won");
+  assert.equal(g.returned, 8);
+  assert.deepEqual(g.snapshot().returnedFragments, [8, 3, 6, 1, 7, 2, 5, 4]);
+  assert.equal(g.snapshot().difficulty, "easy");
+
   // 연결 그래프 전체가 캠프와 연결되어 있으며 문 지름길이 실제로 존재한다.
   const seen = new Set(["camp"]),
     q = ["camp"];

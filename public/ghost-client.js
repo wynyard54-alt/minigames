@@ -155,6 +155,8 @@
     sfx("beep");
     command("ready");
   };
+  $("difficultyEasy").onclick = () => command("difficulty", { difficulty: "easy" });
+  $("difficultyHard").onclick = () => command("difficulty", { difficulty: "hard" });
   $("start").onclick = () => command("start");
   $("close").onclick = () => {
     if (confirm("방을 닫고 게임 선택으로 돌아갈까요?")) command("close");
@@ -441,6 +443,7 @@
     text("roomCode", room.code);
     document.body.classList.toggle("playing", !!room.game);
     document.body.classList.toggle("student", !host);
+    renderDifficulty();
     if (!room.game) {
       cancelReveal();
       presentationKey =
@@ -456,6 +459,20 @@
     }
     $("rulesHome").after($("rulesBox"));
     game();
+  }
+  function renderDifficulty() {
+    const level = room.game?.difficulty || room.difficulty || "hard";
+    const config = D.difficulties[level];
+    text("difficultyDescription", config.name + " · 몬스터볼 " + config.balls + "면(" + (level === "easy" ? "50%" : "약 33%") + ") · " +
+      (config.ordered ? "조각 1~8번 순서로 반납" : "조각 순서 상관없이 반납"));
+    text("gameDifficulty", config.name);
+    text("diceRules", "구조 주사위는 몬스터볼 " + config.balls + "면, 다크라이 1면, 빈 면 " + (5 - config.balls) + "면입니다.");
+    text("fragmentRules", config.ordered ? "캠프에서 1~8번 순서대로 반납하며," : "캠프에서 순서에 상관없이 8개를 반납하며,");
+    ["easy", "hard"].forEach((id) => {
+      const b = $(id === "easy" ? "difficultyEasy" : "difficultyHard");
+      b.setAttribute("aria-pressed", String(id === level));
+      b.disabled = !host || !!room.game;
+    });
   }
   function lobby() {
     show("qrArea", host);
@@ -708,8 +725,7 @@
     $("revealCard").replaceChildren();
     text("revealNote", "");
   }
-  const combatSymbol = (value) =>
-    value < 2 ? "몬스터볼" : value === 2 ? "다크라이" : "빗나감";
+  const combatSymbol = (value) => D.combatSymbol(value, room?.game?.difficulty || "hard");
   function makeDie(v, owner) {
     const unit = document.createElement("div");
     unit.className = "die-unit";
@@ -1154,9 +1170,12 @@
     gems.className = "gauge gems";
     gems.title = "봉인 " + g.returned + "/8";
     for (let i = 1; i <= 8; i++) {
-      const s = seal(i <= g.returned ? i : null);
+      const delivered = g.difficulty === "easy"
+        ? g.returnedFragments.includes(i)
+        : i <= g.returned;
+      const s = seal(delivered ? i : null);
       s.classList.add("gauge-gem");
-      s.classList.toggle("off", i > g.returned);
+      s.classList.toggle("off", !delivered);
       gems.append(s);
     }
     const darks = document.createElement("span");

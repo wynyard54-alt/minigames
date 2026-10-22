@@ -144,7 +144,15 @@
     ["r6", "r10"],
     ["r8", "r9"],
   ].forEach(([a, b]) => link(a, b));
-  const data = { regions, partners, nodes };
+  const difficulties = {
+    easy: { name: "쉬움", balls: 3, ordered: false },
+    hard: { name: "어려움", balls: 2, ordered: true },
+  };
+  const combatSymbol = (value, difficulty = "hard") => {
+    const balls = (difficulties[difficulty] || difficulties.hard).balls;
+    return value < balls ? "몬스터볼" : value === balls ? "다크라이" : "빗나감";
+  };
+  const data = { regions, partners, nodes, difficulties, combatSymbol };
   if (typeof module !== "undefined") module.exports = data;
   else root.GhostData = data;
 })(typeof window === "undefined" ? globalThis : window);
