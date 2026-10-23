@@ -23,6 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 턴제 탐사는 별도 채널로 기존 실시간 게임과 분리한다.
 const ghostRooms = require('./ghost').attach(io);
+const quoridorRooms = require('./quoridor').attach(io);
 
 app.get('/api/qr', async (req, res) => {
   const text = String(req.query.text || '');
@@ -624,4 +625,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, ghostRooms };
+module.exports = { server, rooms, ghostRooms, quoridorRooms };

@@ -1579,3 +1579,7 @@ body.player .team-btn {
   .pod .step, .pod .fighter, .confetti i { animation: none; }
   .confetti { display: none; }
 }
+
+/* 네 번째 게임: 작은 화면은 세로, 넓은 화면은 네 카드가 자연스럽게 줄바꿈. */
+.game-thumb.quoridor { background: #284d52 url('assets/quoridor/thumbnail.webp') center / cover; }
+.game-card > a.btn.ghost { margin-top: 0; text-align: center; }
