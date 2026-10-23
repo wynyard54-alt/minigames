@@ -110,5 +110,7 @@
 
 ## 게임 4: 쿼리도(ver.진격의 거인) — 화면 통일 (Claude)
 - 첫 화면 카드는 다른 카드와 같은 구성(조사병단 남녀 그림 `assets/quoridor/card-scouts.webp`, 칩 3개, [방 만들기] 하나). [AI와 대결] 버튼은 사용자 요청으로 삭제(AI는 대기실에서 추가, `?solo=1`은 남겨 둠).
+- **차례 30초 제한(사용자 확정)**: `quoridor.js` `TURN_LIMIT`, 방별 `turnLimit`(0=끔), 대기실 선생님 `timer` 명령으로 켜기/끄기(기본 켜짐). 사람 차례만, revision이 바뀔 때 마감 재설정, 시간 초과 시 `Q.chooseAI`로 자동 한 수 + `lastAction.timeout`. 전원 미접속이면 자동 두기 안 함. update에 `clock{limit,ms,revision}`을 넣고 화면은 각 기기 시계로 셈(5초 이하 빨강·째깍).
+- 선생님 관전 문구는 `이름(진영)의 차례`. 큰 화면은 `body.playing:not(.student)`에서 보드 폭을 `100vh-215px`로 제한해 1600×900에서도 한 화면. 승리 시 `celebrate()`: 진영 깃발+이긴 말 그림(`lobbyPawn`)+진영 색 꽃가루(`#confetti`는 dialog 안에 있어야 배경 위에 보임)+팡파르, 같은 판은 한 번만.
 - 입장·대기실은 고스트헌터와 같은 방식(`quoridor.css` 끝의 `.q-*`): 머리줄은 게임 중·솔로에서만, 선생님은 왼쪽 큰 QR·방 번호 + 오른쪽 대전 칸(말 그림·진영 색·준비 초록), 학생은 큰 이름 → 내 자리 → 큰 준비 버튼 → 게임 방법. body에 `student`/`playing`/`solo` 클래스. 게임 화면 안쪽은 Codex 디자인 그대로.
 

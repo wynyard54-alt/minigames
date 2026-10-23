@@ -71,3 +71,22 @@ body.student #ready{order:2}
 body.student #start{display:none}
 @media(max-width:760px){body:not(.student) #lobby{grid-template-columns:1fr;padding:0}.q-me{font-size:32px}#roomCode{font-size:56px}}
 @media(prefers-reduced-motion:reduce){.person{animation:none}}
+/* 선생님 큰 화면: 보드가 아래로 잘리지 않게 화면 높이에 맞춤 */
+@media(min-width:900px){body.playing:not(.student) .play-column{max-width:min(740px,calc(100vh - 215px))}body.playing:not(.student) #game{margin-top:6px}}
+#game.scout-turn .turn-line strong{color:#9fe0a8}#game.marley-turn .turn-line strong{color:#ffaab2}
+/* 차례 시간 */
+.turn-line{position:relative}.turn-timer{position:absolute;right:2px;top:6px;font-weight:900;font-size:18px!important;color:#ffe184!important;background:#1b293c;border:1px solid #456072;border-radius:999px;padding:2px 12px}.turn-timer.urgent{color:#fff!important;background:#c2414f;border-color:#ff8a95;animation:q-pulse .5s ease-in-out infinite alternate}
+@keyframes q-pulse{to{transform:scale(1.12)}}
+.q-timer-info{margin:0;font-size:14px;color:#ffe184}#timerToggle.off{opacity:.75}
+/* 승리 연출: 진영 깃발 + 캐릭터 + 꽃가루 */
+.q-win{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:-6px 0 10px;min-height:0}.q-win:empty{display:none}
+.q-flag{position:relative;width:118px;height:120px}.q-flag i{position:absolute;left:8px;top:0;width:5px;height:120px;background:#c9b48a;border-radius:3px}
+.q-flag b{position:absolute;left:13px;top:6px;width:100px;padding:14px 4px;font-size:15px;color:#fff;border-radius:0 8px 8px 0;transform-origin:left center;animation:q-wave 1.2s ease-in-out infinite alternate;box-shadow:0 4px 10px #0006}
+.q-win.scout .q-flag b{background:linear-gradient(135deg,#3f8a4e,#2a6136)}.q-win.marley .q-flag b{background:linear-gradient(135deg,#b94d58,#7d2b35)}
+@keyframes q-wave{from{transform:skewY(-4deg) scaleX(.96)}to{transform:skewY(4deg) scaleX(1.02)}}
+.q-win-pawn{transform:scale(1.7);transform-origin:bottom center;margin:0 22px 0 14px;animation:q-hop .7s ease-in-out infinite alternate}
+@keyframes q-hop{to{translate:0 -8px}}
+#outcome{overflow:visible}#outcome h2{font-size:30px}
+.q-confetti{position:fixed;inset:0;pointer-events:none;z-index:2147483647;overflow:hidden}.q-confetti i{position:absolute;top:-20px;width:10px;height:14px;border-radius:2px;animation:q-fall linear forwards}
+@keyframes q-fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media(prefers-reduced-motion:reduce){.q-flag b,.q-win-pawn,.turn-timer.urgent{animation:none}}
