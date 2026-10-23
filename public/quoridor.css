@@ -86,8 +86,8 @@ body.student #start{display:none}
 .q-victory-stage{position:relative;isolation:isolate;height:200px;display:flex;align-items:flex-end;justify-content:center;margin:6px 0 8px}
 .q-victory-stage:before{content:"";position:absolute;inset:18px 15px 0;border-radius:50%;background:radial-gradient(ellipse,#fff1ae38,transparent 65%);z-index:-1}
 .q-victory-stage:after{content:"";position:absolute;width:150px;height:20px;bottom:-3px;border:2px solid #e4d9a75c;border-radius:50%;background:#e5d6a91c;z-index:-1}
-.q-victory-banner{position:absolute;left:calc(50% - 125px);top:0;width:130px;height:165px;background-image:url('assets/quoridor/victory-banners.webp');background-size:260px 165px;background-repeat:no-repeat;filter:drop-shadow(0 5px 2px #0004);transform:rotate(-7deg)}
-.q-victory-banner.marley{background-position:right top}
+.q-victory-banner{position:absolute;left:calc(50% - 130px);bottom:3px;width:200px;height:200px;background-image:url('assets/quoridor/victory-banners.webp?v=long-pole');background-size:400px 200px;background-repeat:no-repeat;filter:drop-shadow(0 3px 2px #0004)}
+.q-victory-banner.marley{left:calc(50% - 88px);background-position:right top}
 .q-victory-pawn{position:relative;margin-left:60px;filter:drop-shadow(0 6px 3px #0005)}
 #outcome h2{position:relative;margin:10px 0 4px;font-size:clamp(25px,7vw,34px);color:#fff2c0;text-shadow:0 3px #071723}
 #outcome .q-result-motto{margin:4px 0 12px;color:var(--team);font-size:18px;font-weight:800}
@@ -97,7 +97,7 @@ body.student #start{display:none}
 @keyframes q-spark{15%{opacity:.9}to{opacity:0;transform:translateY(-35px) scale(.3)}}
 @keyframes q-reveal{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:no-preference){#outcome[open]{animation:q-reveal .35s ease-out}.q-victory-pawn{animation:q-reveal .5s cubic-bezier(.2,.8,.2,1)}}
-@media(max-height:550px){#outcome{padding:14px 22px}.q-victory-stage{height:135px;margin:0}.q-victory-pawn{zoom:.75}.q-victory-banner{width:100px;height:127px;background-size:200px 127px;left:calc(50% - 100px)}#outcomeText{margin-bottom:10px}#outcome h2{margin-top:4px}}
+@media(max-height:550px){#outcome{padding:14px 22px}.q-victory-stage{height:135px;margin:0}.q-victory-pawn{zoom:.75}.q-victory-banner{width:140px;height:140px;background-size:280px 140px;left:calc(50% - 110px);bottom:5px}.q-victory-banner.marley{left:calc(50% - 80px)}#outcomeText{margin-bottom:10px}#outcome h2{margin-top:4px}}
 @media(prefers-reduced-motion:reduce){.turn-timer.urgent{animation:none}}
 /* 일시정지(선생님만) */
 .board-wrap{position:relative}.q-pause{position:absolute;inset:0;z-index:3;border-radius:14px;background:#07101ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
