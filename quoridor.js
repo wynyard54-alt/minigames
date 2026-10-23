@@ -13,7 +13,7 @@ function attach(io){
     const game=r.game,revision=game.revision;
     const timer=setTimeout(()=>{timers.delete(r.code);
       if(rooms.get(r.code)!==r||r.game!==game||game.revision!==revision||(!r.host&&!r.players.some(p=>!p.ai&&p.socket)))return;
-      const req=(r.aiLevel==='hard'?Q.chooseHardAI:Q.chooseAI)(game);if(req)Q.action(game,game.turn,req);publish(r);
+      const req=(game.players[game.turn].aiLevel==='hard'?Q.chooseHardAI:Q.chooseAI)(game);if(req)Q.action(game,game.turn,req);publish(r);
     },1200);timer.unref();timers.set(r.code,timer);
   }
   // 사람 차례마다 마감 시각을 정하고, 같은 수(revision)가 그대로면 시간 초과로 처리한다
@@ -39,8 +39,8 @@ function attach(io){
     }
     return {limit,ms:Math.max(0,t.deadline-Date.now()),revision:g.revision};
   }
-  function publish(r){const clock=turnClock(r);ns.to(r.code).emit('update',{code:r.code,solo:r.solo,paused:!!r.paused,turnLimit:r.turnLimit??TURN_LIMIT,aiLevel:r.aiLevel||'easy',clock,players:r.players.map(({key,socket,...p})=>({...p,connected:!!p.ai||!!socket})),game:r.game});schedule(r);}
-  function addAI(r){r.players.push({id:secret().slice(0,10),name:'AI 상대',gender:'girl',ai:true,ready:true});}
+  function publish(r){const clock=turnClock(r);ns.to(r.code).emit('update',{code:r.code,solo:r.solo,paused:!!r.paused,turnLimit:r.turnLimit??TURN_LIMIT,clock,players:r.players.map(({key,socket,...p})=>({...p,connected:!!p.ai||!!socket})),game:r.game});schedule(r);}
+  function addAI(r){r.players.push({id:secret().slice(0,10),name:'AI 상대',gender:'girl',ai:true,aiLevel:'easy',ready:true});}
   ns.on('connection',s=>{
     s.on('create',(d,cb=()=>{})=>{
       if(rooms.has(s.data.code))return cb({error:'이미 방에 참가하고 있어요.'});
@@ -75,12 +75,12 @@ function attach(io){
       else if(d?.type==='kick'&&host&&!r.game){const target=r.players.find(a=>a.id===d.id);if(target&&target.id!==s.data.playerId){if(target.socket){const old=ns.sockets.get(target.socket);if(old){old.leave(r.code);old.data.playerId=null;old.emit('closed','대기실에서 나왔습니다.');}}r.players=r.players.filter(a=>a!==target);}else error='이 플레이어는 내보낼 수 없어요.';}
       else if(d?.type==='swap'&&host&&!r.game&&r.players.length===2){r.players.reverse();}
       else if(d?.type==='pause'&&host&&r.game?.status==='playing'){r.paused=!r.paused;if(r.paused){clearTimeout(timers.get(r.code));timers.delete(r.code);}}
-      else if(d?.type==='aiLevel'&&host&&!r.game){if(!['easy','hard'].includes(d.level))error='AI 난이도를 다시 선택해 주세요.';else r.aiLevel=d.level;}
+      else if(d?.type==='aiLevel'&&host&&!r.game){const target=r.players.find(a=>a.id===d.id&&a.ai);if(!target||!['easy','hard'].includes(d.level))error='AI와 난이도를 다시 선택해 주세요.';else target.aiLevel=d.level;}
       else if(d?.type==='timer'&&host&&!r.game){r.turnLimit=(r.turnLimit??TURN_LIMIT)?0:TURN_LIMIT;}
       else if(d?.type==='gender'&&!r.game){const target=r.players.find(a=>a.id===(d.id||p?.id));if(!['boy','girl'].includes(d.gender)||!target||!(target===p||(host&&target.ai)))error='내 캐릭터만 바꿀 수 있어요.';else target.gender=d.gender;}
       else if(d?.type==='ready'&&p&&!r.game){p.ready=!p.ready;}
       else if(d?.type==='name'&&p&&!r.game){p.name=clean(d.name);}
-      else if(d?.type==='start'&&host&&!r.game){if(r.players.length!==2||r.players.some(a=>!a.ready||(!a.ai&&!a.socket)))error='두 명이 모두 준비하면 시작할 수 있어요.';else r.game=Q.create(r.players.map(({id,name,gender,ai})=>({id,name,gender,ai:!!ai})));}
+      else if(d?.type==='start'&&host&&!r.game){if(r.players.length!==2||r.players.some(a=>!a.ready||(!a.ai&&!a.socket)))error='두 명이 모두 준비하면 시작할 수 있어요.';else r.game=Q.create(r.players.map(({id,name,gender,ai,aiLevel})=>({id,name,gender,ai:!!ai,...(ai?{aiLevel:aiLevel||'easy'}:{})})));}
       else if(d?.type==='reset'&&(host||(p&&r.game?.status==='won'))){cancel(r);r.game=null;r.paused=false;r.players.forEach(a=>a.ready=!!a.ai||r.solo);}
       else if(p&&r.game&&r.paused)error='선생님이 잠깐 멈췄어요. 다시 시작하면 이어서 해요.';
       else if(p&&r.game){const i=r.game.players.findIndex(a=>a.id===p.id);error=Q.action(r.game,i,d);}
