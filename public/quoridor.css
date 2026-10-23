@@ -78,18 +78,27 @@ body.student #start{display:none}
 .turn-line{position:relative}.turn-timer{position:absolute;right:2px;top:6px;font-weight:900;font-size:18px!important;color:#ffe184!important;background:#1b293c;border:1px solid #456072;border-radius:999px;padding:2px 12px}.turn-timer.urgent{color:#fff!important;background:#c2414f;border-color:#ff8a95;animation:q-pulse .5s ease-in-out infinite alternate}
 @keyframes q-pulse{to{transform:scale(1.12)}}
 .q-timer-info{margin:0;font-size:14px;color:#ffe184}#timerToggle.off{opacity:.75}
-/* 승리 연출: 진영 깃발 + 캐릭터 + 꽃가루 */
-.q-win{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:-6px 0 10px;min-height:0}.q-win:empty{display:none}
-.q-flag{position:relative;width:118px;height:120px}.q-flag i{position:absolute;left:8px;top:0;width:5px;height:120px;background:#c9b48a;border-radius:3px}
-.q-flag b{position:absolute;left:13px;top:6px;width:100px;padding:14px 4px;font-size:15px;color:#fff;border-radius:0 8px 8px 0;transform-origin:left center;animation:q-wave 1.2s ease-in-out infinite alternate;box-shadow:0 4px 10px #0006}
-.q-win.scout .q-flag b{background:linear-gradient(135deg,#3f8a4e,#2a6136)}.q-win.marley .q-flag b{background:linear-gradient(135deg,#b94d58,#7d2b35)}
-@keyframes q-wave{from{transform:skewY(-4deg) scaleX(.96)}to{transform:skewY(4deg) scaleX(1.02)}}
-.q-win-pawn{transform:scale(1.7);transform-origin:bottom center;margin:0 22px 0 14px;animation:q-hop .7s ease-in-out infinite alternate}
-@keyframes q-hop{to{translate:0 -8px}}
-#outcome{overflow:visible}#outcome h2{font-size:30px}
-.q-confetti{position:fixed;inset:0;pointer-events:none;z-index:2147483647;overflow:hidden}.q-confetti i{position:absolute;top:-20px;width:10px;height:14px;border-radius:2px;animation:q-fall linear forwards}
-@keyframes q-fall{to{transform:translateY(110vh) rotate(720deg)}}
-@media(prefers-reduced-motion:reduce){.q-flag b,.q-win-pawn,.turn-timer.urgent{animation:none}}
+/* 승리 무대: 보드와 같은 귀여운 말·깃발, 짧은 빛과 한 번의 등장 */
+#outcome{--team:#8ac78c;position:fixed;box-sizing:border-box;width:min(420px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;padding:22px 24px 25px;border:2px solid #adbd9c;border-radius:24px;background:radial-gradient(ellipse at 50% 35%,#35534c 0,#172f36 55%,#12242e 100%);box-shadow:0 16px 0 -9px #07151d,0 22px 60px #0009,inset 0 0 0 5px #ffffff07;text-align:center}
+#outcome.victory-marley{--team:#e7a09c;border-color:#c59e93;background:radial-gradient(ellipse at 50% 35%,#654249 0,#352c3b 55%,#202431 100%)}
+#outcome::backdrop{background:#06101bbd}
+.q-result-label{position:relative;margin:0;color:#e9dba8;font-size:13px;font-weight:800;letter-spacing:.15em}
+.q-victory-stage{position:relative;isolation:isolate;height:200px;display:flex;align-items:flex-end;justify-content:center;margin:6px 0 8px}
+.q-victory-stage:before{content:"";position:absolute;inset:18px 15px 0;border-radius:50%;background:radial-gradient(ellipse,#fff1ae38,transparent 65%);z-index:-1}
+.q-victory-stage:after{content:"";position:absolute;width:150px;height:20px;bottom:-3px;border:2px solid #e4d9a75c;border-radius:50%;background:#e5d6a91c;z-index:-1}
+.q-victory-banner{position:absolute;left:calc(50% - 125px);top:0;width:130px;height:165px;background-image:url('assets/quoridor/victory-banners.webp');background-size:260px 165px;background-repeat:no-repeat;filter:drop-shadow(0 5px 2px #0004);transform:rotate(-7deg)}
+.q-victory-banner.marley{background-position:right top}
+.q-victory-pawn{position:relative;margin-left:60px;filter:drop-shadow(0 6px 3px #0005)}
+#outcome h2{position:relative;margin:10px 0 4px;font-size:clamp(25px,7vw,34px);color:#fff2c0;text-shadow:0 3px #071723}
+#outcome .q-result-motto{margin:4px 0 12px;color:var(--team);font-size:18px;font-weight:800}
+#outcomeText{position:relative;margin:0 auto 20px;max-width:290px;color:#d3dedc;line-height:1.6;font-size:14px;overflow-wrap:anywhere}
+#outcome #again{position:relative;width:100%;min-height:48px}#outcomeError:empty{display:none}
+.q-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:22px}.q-confetti i{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff0b0;opacity:0;box-shadow:0 0 8px #fff2b8;animation:q-spark 1.4s ease-out both}
+@keyframes q-spark{15%{opacity:.9}to{opacity:0;transform:translateY(-35px) scale(.3)}}
+@keyframes q-reveal{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:no-preference){#outcome[open]{animation:q-reveal .35s ease-out}.q-victory-pawn{animation:q-reveal .5s cubic-bezier(.2,.8,.2,1)}}
+@media(max-height:550px){#outcome{padding:14px 22px}.q-victory-stage{height:135px;margin:0}.q-victory-pawn{zoom:.75}.q-victory-banner{width:100px;height:127px;background-size:200px 127px;left:calc(50% - 100px)}#outcomeText{margin-bottom:10px}#outcome h2{margin-top:4px}}
+@media(prefers-reduced-motion:reduce){.turn-timer.urgent{animation:none}}
 /* 일시정지(선생님만) */
 .board-wrap{position:relative}.q-pause{position:absolute;inset:0;z-index:3;border-radius:14px;background:#07101ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
 .q-pause b{font-size:clamp(28px,6vw,52px);color:#ffe184}.q-pause span{color:#dfe8e4;font-size:18px}
