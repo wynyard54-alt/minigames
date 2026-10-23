@@ -19,12 +19,14 @@ class Expedition {
       node: "camp",
       rescues: 0,
       carry: null,
+      blessed: false,
     }));
     this.turn = 0;
     this.phase = "roll";
     this.moves = 0;
     this.roll = null;
     this.card = null;
+    this.flight = false;
     this.dice = [];
     this.battle = null;
     this.log = [
@@ -44,7 +46,7 @@ class Expedition {
     }));
     const locations = shuffle([...Array(10).keys()], rng).slice(0, 8);
     locations.forEach((r, i) => (this.regions[r].fragment = i + 1));
-    this.deck = shuffle([...Array(31).keys()], rng);
+    this.deck = shuffle([...Array(D.cardCount).keys()], rng);
     this.discard = [];
   }
   get active() {
@@ -92,6 +94,16 @@ class Expedition {
       this.note("다시 섞기! 출현 없이 카드 더미를 모두 섞습니다.");
       return;
     }
+    if (c === 31) {
+      this.flight = true;
+      this.note(this.active.name + " 창공날기! 원하는 지역이나 캠프로 이동하세요.");
+      return;
+    }
+    if (c === 32) {
+      this.active.blessed = true;
+      this.note(this.active.name + " 초승달의 축복! 다음 참여 다크라이 배틀 확정 성공.");
+      return;
+    }
     let index = Math.floor(c / 3);
     const name = D.regions[index].mobs[c % 3];
     for (let i = 0; i < 10; i++) {
@@ -132,6 +144,8 @@ class Expedition {
     if (this.phase !== "move") return {};
     const r = this.region(p.node);
     if (r && r.dark && p.carry) return { [p.node]: 0 };
+    if (this.flight)
+      return Object.fromEntries(["camp", ...this.regions.map(r => r.id)].map(id => [id, 0]));
     const dist = { [p.node]: 0 },
       q = [p.node];
     while (q.length) {
@@ -161,6 +175,7 @@ class Expedition {
       this.roll = 1 + Math.floor(this.rng() * 6);
       this.moves = this.roll + (this.final(p) ? 1 : 0);
       this.card = null;
+      this.flight = false;
       this.dice = [];
       this.battle = null;
       this.phase = "move";
@@ -179,7 +194,7 @@ class Expedition {
       const distances = this.reachable();
       let step = req.node;
       const path = [step];
-      while (step !== p.node) {
+      while (!this.flight && step !== p.node) {
         step = D.nodes[step].links.find(
           (n) =>
             distances[n] === distances[step] - 1 &&
@@ -196,6 +211,7 @@ class Expedition {
         }
       }
       p.node = req.node;
+      this.flight = false;
       this.phase = "act";
       this.checkSoloLoss();
       return;
@@ -240,21 +256,27 @@ class Expedition {
       );
       let team = [p];
       if (allies.length) {
-        const helper = allies.find((o) => o.id === req.helper) || allies[0];
+        const helper = allies.find((o) => o.id === req.helper) || allies.find(o => o.blessed) || allies[0];
         team.push(helper);
       }
       if (r.dark && team.length < 2)
         return "다크라이는 두 명이 함께 있어야 해결할 수 있어요.";
-      this.dice = team.map(() => Math.floor(this.rng() * 6));
+      const blessed = r.dark ? team.find(o => o.blessed) : null;
+      this.dice = blessed ? [] : team.map(() => Math.floor(this.rng() * 6));
       this.battle = {
         participants: team.map((o) => ({ id: o.id, name: o.name })),
         dark: !!r.dark,
         extra: null,
         success: false,
+        blessedBy: blessed?.id || null,
       };
       const wins = () => this.dice.some((d) =>
         D.combatSymbol(d, this.difficulty) === (r.dark ? "다크라이" : "몬스터볼"));
-      let success = wins();
+      let success = !!blessed || wins();
+      if (blessed) {
+        blessed.blessed = false;
+        this.note(blessed.name + "의 초승달의 축복! 다크라이 확정 구조 (축복 소모).");
+      }
       if (!success && !r.dark) {
         const eligible = D.partners[p.partner].zones.includes(
           Number(r.id.slice(1)),
@@ -301,6 +323,7 @@ class Expedition {
     this.moves = 0;
     this.roll = null;
     this.card = null;
+    this.flight = false;
     this.dice = [];
     this.battle = null;
   }
@@ -315,6 +338,7 @@ class Expedition {
       moves: this.moves,
       roll: this.roll,
       card: this.card,
+      flight: this.flight,
       dice: this.dice,
       battle: this.battle,
       regions: this.regions.map((r) => ({

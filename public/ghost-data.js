@@ -154,7 +154,13 @@
     const balls = (difficulties[difficulty] || difficulties.hard).balls;
     return value < balls ? "몬스터볼" : value === balls ? "다크라이" : "빗나감";
   };
-  const data = { regions, partners, nodes, difficulties, combatSymbol };
+  const supportCards = {
+    31: { name: "창공날기", description: "선택한 지역으로 이동" },
+    32: { name: "초승달의 축복", description: "다음 다크라이 배틀 100% 성공" },
+  };
+  // 원본 그림은 수정하지 않고 투명 여백을 제외한 표시 높이만 통일한다.
+  const pawnBounds = {"orange-1.webp":[400,267,73,12,327,258],"red-1.webp":[400,267,68,5,335,262],"blue-2.webp":[292,320,0,9,284,309],"orange-0.webp":[400,267,70,5,331,259],"yellow-0.webp":[320,320,30,23,282,308],"blue-0.webp":[292,320,12,16,292,308],"green-0.webp":[320,320,20,15,320,309],"blue-1.webp":[292,320,0,16,292,308],"red-0.webp":[400,267,94,4,310,262],"purple-2.webp":[400,267,61,7,356,263],"yellow-1.webp":[320,320,15,23,302,308],"purple-1.webp":[400,267,54,12,360,258],"yellow-2.webp":[320,320,6,9,317,309],"purple-0.webp":[400,267,53,8,360,260],"red-2.webp":[400,267,77,5,327,262],"green-1.webp":[320,320,0,16,320,310],"green-2.webp":[320,320,0,18,310,311]};
+  const data = { regions, partners, nodes, difficulties, combatSymbol, supportCards, pawnBounds, cardCount: 33 };
   if (typeof module !== "undefined") module.exports = data;
   else root.GhostData = data;
 })(typeof window === "undefined" ? globalThis : window);

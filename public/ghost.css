@@ -1654,3 +1654,16 @@ dialog.story-dialog,
 
 /* 선생님 탐사대 목록 바로 아래의 AI 추가 버튼 */
 #addAI { width: 100%; min-height: 46px; margin: 12px 0 0; }
+
+.blessing-status { color: #ffe184; font-weight: 700; line-height: 1.5; }
+#myBlessing { font-size: 13px; margin-bottom: 5px; }
+#myBlessing:empty { display: none; }
+.blessing-badge {
+  position: absolute; top: -5%; left: -12%;
+  display: grid; place-items: center; width: 25%; aspect-ratio: 1;
+  border-radius: 50%; background: #202a48; color: #ffe184;
+  border: 1px solid #ffe184; font-size: clamp(12px, 2.2vw, 23px);
+  box-shadow: 0 0 6px #eecb58; text-shadow: 0 0 3px #fff4af;
+}
+
+.blessing-orb { font-size: 88px; color: #ffe184; text-shadow: 0 0 25px #edbf55; }

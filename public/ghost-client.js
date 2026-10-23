@@ -41,6 +41,19 @@
     return im;
   };
   const pawn = (p) => `${D.partners[p.partner].color}-${p.stage || 0}.webp`;
+  function mapPawn(p) {
+    const src = pawn(p), im = image(src, p.name, "pawn"), bounds = D.pawnBounds[src];
+    if (bounds) {
+      const [w, h, x0, y0, x1, y1] = bounds, visibleHeight = y1 - y0;
+      Object.assign(im.style, {
+        position: "absolute", objectFit: "fill", maxWidth: "none",
+        width: w / visibleHeight * 100 + "%", height: h / visibleHeight * 100 + "%",
+        left: 50 - (x0 + x1) / 2 / visibleHeight * 100 + "%",
+        top: -y0 / visibleHeight * 100 + "%",
+      });
+    }
+    return im;
+  }
   const command = (type, extra = {}) => {
     if (busy || !socket.connected) return;
     busy = true;
@@ -288,8 +301,8 @@
     b.players.forEach((p, i) => {
       const q = a.players[i];
       if (q && q.id === p.id && q.node !== p.node) {
-        const path = pathBetween(q.node, p.node);
-        fxState.walks.set(p.id, { path, start: now, dur: (path.length - 1) * STEP_MS });
+        const path = a.flight ? [q.node, p.node] : pathBetween(q.node, p.node);
+        fxState.walks.set(p.id, { path, start: now, dur: a.flight ? 650 : (path.length - 1) * STEP_MS });
       }
     });
     b.regions.forEach((r, i) => {
@@ -579,7 +592,7 @@
     const instructions = {
       roll: "주사위를 던져요!",
       card: g.roll === 6 ? "6! 이번엔 출현 없음" : "카드 지역에 폭주 포켓몬 등장!",
-      move: "빛나는 칸을 눌러 이동 (최대 " + g.moves + "칸, 제자리도 OK)",
+      move: g.flight ? "창공날기! 이동할 지역 번호나 캠프를 선택하세요." : "빛나는 칸을 눌러 이동 (최대 " + g.moves + "칸, 제자리도 OK)",
       act: "배틀하거나 조각을 챙기고 차례를 마쳐요.",
       end: "배틀 완료! 조각을 챙긴 뒤 차례를 마칠 수 있어요.",
       won: "여덟 조각을 모은 탐사대와 파트너들이 힘을 합쳐 기라티나의 폭주를 막았습니다.",
@@ -602,6 +615,7 @@
         : "",
     );
     $("myCarry").classList.toggle("loaded", !!own?.carry);
+    text("myBlessing", own?.blessed ? "☾ 초승달의 축복 · 다크라이 확정 구조 1회" : "");
     renderTable(g);
     updateTurnNotice(g, mine, ended);
     $("actions").replaceChildren();
@@ -627,7 +641,7 @@
           });
           select.value = helpers.some((o) => o.id === selectedHelper)
             ? selectedHelper
-            : helpers[0].id;
+            : (helpers.find(o => o.blessed) || helpers[0]).id;
           select.onchange = () => {
             selectedHelper = select.value;
             renderTable(g);
@@ -687,6 +701,12 @@
       field.title =
         "일반 구조 공격 실패 시 추가공격 1회. 다크라이 배틀에는 적용되지 않습니다.";
       d.append(field);
+      if (o.blessed) {
+        const blessing = document.createElement("small");
+        blessing.className = "blessing-status";
+        blessing.textContent = "☾ 초승달의 축복 · 다크라이 확정 구조 1회";
+        d.append(blessing);
+      }
       el.append(d);
       $("team").append(el);
     });
@@ -895,7 +915,13 @@
     text("battleNote", "");
     $("dice").title =
       "몬스터볼: 일반 구조 성공 · 다크라이: 다크라이 해결 성공 · 빈 면: 빗나감";
-    if (g.battle) {
+    if (g.battle?.blessedBy) {
+      const result = document.createElement("p");
+      result.className = "blessing-status";
+      result.textContent = "☾ 초승달의 축복 · 다크라이 확정 구조!";
+      $("dice").append(result);
+      text("battleNote", "축복 1회 사용 · 아래 포켓몬 3마리도 모두 구조");
+    } else if (g.battle) {
       g.battle.participants.forEach((owner, i) => {
         const extra = g.battle.extra?.id === owner.id ? g.battle.extra : null;
         $("dice").append(
@@ -918,7 +944,7 @@
       const helpers = g.players.filter(
         (o) => o.node === p.node && o.id !== p.id,
       );
-      const helper = helpers.find((o) => o.id === selectedHelper) || helpers[0];
+      const helper = helpers.find((o) => o.id === selectedHelper) || helpers.find(o => o.blessed) || helpers[0];
       [p, ...(helper ? [helper] : [])].forEach((owner) =>
         $("dice").append(makeDie("?", owner)),
       );
@@ -939,7 +965,9 @@
     );
     const caption = document.createElement("p");
     caption.textContent = face
-      ? g.card === 30
+      ? D.supportCards[g.card]
+        ? D.supportCards[g.card].name + " · " + D.supportCards[g.card].description
+        : g.card === 30
         ? "다시 섞기 · 추가 출현 없음"
         : D.regions[Math.floor(g.card / 3)].name +
           " · 폭주 " +
@@ -1029,6 +1057,19 @@
     if (!host && g.players[g.turn].id === me?.id)
       $("board").scrollIntoView({ block: "start", behavior: "instant" });
     $("tableTray").classList.add("revealing");
+    if (g.battle?.blessedBy) {
+      const moon = document.createElement("div");
+      moon.className = "blessing-orb";
+      moon.textContent = "☾";
+      $("revealDice").replaceChildren(moon);
+      text("revealNote", "초승달의 축복 · 다크라이 확정 구조!");
+      show("reveal", true);
+      await wait(1500);
+      if (!current()) return;
+      cancelReveal();
+      render();
+      return;
+    }
     if (g.battle)
       $("revealDice").replaceChildren(
         ...g.battle.participants.map((owner, i) =>
@@ -1242,7 +1283,7 @@
       b.dataset.node = n.id;
       b.style.left = n.x + "%";
       b.style.top = n.y + "%";
-      b.title = n.name + (available ? " · " + g.reachable[n.id] + "칸" : "");
+      b.title = n.name + (available ? (g.flight ? " · 창공날기" : " · " + g.reachable[n.id] + "칸") : "");
       b.setAttribute("aria-label", b.title);
       $("nodes").append(b);
     });
@@ -1279,7 +1320,7 @@
       const piece = document.createElement("div");
       piece.className = "player-piece" + (i === g.turn ? " active" : "");
       piece.dataset.player = p.id;
-      const size = n.id.startsWith("r") || n.id === "camp" ? 11 : 8;
+      const size = 10;
       piece.style.width = size + "%";
       piece.style.height = size + "%";
       const x =
@@ -1289,7 +1330,15 @@
         fy = Math.min(100 - size * 0.15 - 0.5, y);
       piece.style.left = fx + "%";
       piece.style.top = fy + "%";
-      piece.append(image(pawn(p), p.name, "pawn"));
+      piece.append(mapPawn(p));
+      if (p.blessed) {
+        const badge = document.createElement("span");
+        badge.className = "blessing-badge";
+        badge.textContent = "☾";
+        badge.setAttribute("role", "img");
+        badge.setAttribute("aria-label", "초승달의 축복 · 다크라이 확정 구조 1회");
+        piece.append(badge);
+      }
       if (p.carry) {
         const badge = seal(p.carry);
         badge.classList.add("carry-badge");

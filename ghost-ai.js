@@ -23,7 +23,7 @@ function decide(g) {
   const canTake = r => r.fragment && (!ordered || r.fragment === g.returned + 1);
   if (['act', 'end'].includes(g.phase)) {
     if (g.phase === 'act' && !g.battle && region?.mobs.length && (!region.dark || allies.length))
-      return { type: 'battle', helper: allies[0]?.id };
+      return { type: 'battle', helper: (allies.find(o => o.blessed) || allies[0])?.id };
     if (p.node === 'camp' && p.carry && (!ordered || p.carry === g.returned + 1))
       return { type: 'deliver' };
     // 다크라이 속 조각은 협동 해결 후 운반한다.
@@ -32,7 +32,7 @@ function decide(g) {
   }
   if (g.phase !== 'move') return null;
   const blocked = new Set(p.carry ? g.regions.filter(r => r.dark).map(r => r.id) : []);
-  const from = distances(p.node, blocked);
+  const from = g.flight ? Object.fromEntries(Object.keys(D.nodes).map(id => [id, 0])) : distances(p.node, blocked);
   const targets = [];
   const add = (node, value, reason) => targets.push({ node, value, reason });
   if (p.carry || g.returned === 8) add('camp', 200, '봉인조각을 캠프로 운반합니다.');
@@ -45,7 +45,7 @@ function decide(g) {
         const closest = [...g.players].sort((a,b) =>
           (distances(a.node)[r.id] ?? 999) - (distances(b.node)[r.id] ?? 999) || a.id.localeCompare(b.id));
         if (occupants.length || closest.slice(0,2).some(o => o.id === p.id))
-          add(r.id, occupants.length ? 150 : 95, '다크라이 해결을 도우러 갑니다.');
+          add(r.id, occupants.length ? (p.blessed || occupants.some(o => o.blessed) ? 185 : 150) : 95, '다크라이 해결을 도우러 갑니다.');
         continue;
       }
       const reserved = occupants.some(o => !o.carry);

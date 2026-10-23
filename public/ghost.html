@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>고스트헌터(ver.포켓몬)</title>
     <link rel="preload" as="image" href="assets/ghost/darkrai.webp" />
-    <link rel="stylesheet" href="ghost.css?v=20261024-win" />
+    <link rel="stylesheet" href="ghost.css?v=20261023-support" />
   </head>
   <body>
     <header>
@@ -92,7 +92,7 @@
         <div id="board">
           <img
             class="map"
-            src="assets/ghost/map.webp?v=20261024-win"
+            src="assets/ghost/map.webp?v=20261023-support"
             alt="화산 기슭, 사막, 동굴, 돌산, 설원, 숲, 언덕, 바다, 강 하구, 풀밭 탐사 지도"
           />
           <div id="nodes"></div>
@@ -125,6 +125,7 @@
         <section id="turnPanel" class="panel">
           <div id="turnStatus" class="turn-status" role="status"></div>
           <div id="myCarry" class="my-carry"></div>
+          <div id="myBlessing" class="blessing-status" role="status"></div>
           <h2 id="phaseTitle"></h2>
           <p id="instruction"></p>
           <div id="actions"></div>
@@ -171,6 +172,7 @@
           <p>
             구조 참여 3마리·6마리에 진화(리오르는 6마리). 최종 진화하면 이동 +1.
           </p>
+          <p>지원 카드는 각 1장입니다. 창공날기는 선택한 지역이나 캠프로 이동합니다. 조각을 든 채 다크라이 지역에서 나갈 수 없는 규칙은 유지됩니다. 초승달의 축복은 뽑은 사람에게 1회 부여되며, 그 사람이 참여하는 다음 다크라이 배틀을 확정 성공시킵니다. 두 명 협동은 필요하고, 일반 배틀에는 소모되지 않습니다. 축복 보유자가 둘이면 한 명의 축복만 사용합니다. 이미 보유 중이면 중첩되지 않습니다.</p>
           <p id="partnerFieldGuide"></p>
           <p class="rules-note">
             ※ 1인 플레이에서도 다크라이는 잡을 수 없습니다. 봉인조각이 있는 지역에
@@ -212,8 +214,8 @@
       </div>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="ghost-data.js?v=20261024-win"></script>
+    <script src="ghost-data.js?v=20261023-support"></script>
     <script src="sound.js"></script>
-    <script src="ghost-client.js?v=20261024-win"></script>
+    <script src="ghost-client.js?v=20261023-support"></script>
   </body>
 </html>

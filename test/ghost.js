@@ -8,8 +8,8 @@ const team = () => [
 ];
 function run() {
   let g = new Expedition(team(), () => 0.1);
-  assert.equal(g.deck.length, 31);
-  assert.equal(new Set(g.deck).size, 31);
+  assert.equal(g.deck.length, 33);
+  assert.equal(new Set(g.deck).size, 33);
   const fragments = g.regions.filter((r) => r.fragment);
   assert.equal(fragments.length, 8);
   assert.equal(new Set(fragments.map((r) => r.fragment)).size, 8);
@@ -33,7 +33,7 @@ function run() {
   g.action("a", { type: "roll" });
   assert.equal(g.roll, 6);
   assert.equal(g.moves, 7);
-  assert.equal(g.deck.length, 31);
+  assert.equal(g.deck.length, 33);
   assert.equal(g.card, null);
   g = new Expedition(team(), () => 0.1);
   g.deck = [0, 30];
