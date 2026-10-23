@@ -1649,7 +1649,7 @@ dialog.story-dialog,
   border-color: #ffe05a;
   box-shadow: inset 0 0 0 2px #6d5100;
 }
-#difficultyDescription { margin: 8px 0 0; font-size: 14px; line-height: 1.5; }
+#difficultyDescription { margin: 8px 0 0; font-size: 14px; line-height: 1.5; white-space: pre-line; }
 .difficulty-badge { color: #ffe08c; font-size: 13px; white-space: nowrap; }
 
 /* 선생님 탐사대 목록 바로 아래의 AI 추가 버튼 */

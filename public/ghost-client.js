@@ -478,7 +478,8 @@
     const level = room.game?.difficulty || room.difficulty || "hard";
     const config = D.difficulties[level];
     text("difficultyDescription", config.name + " · 몬스터볼 " + config.balls + "면(" + (level === "easy" ? "50%" : "약 33%") + ") · " +
-      (config.ordered ? "조각 1~8번 순서로 반납" : "조각 순서 상관없이 반납"));
+      (config.ordered ? "조각 1~8번 순서로 반납" : "조각 순서 상관없이 반납") + "\n" +
+      (level === "easy" ? "동일 지역 모든 플레이어 구출 참여" : "동일 지역 내 최대 2명의 플레이어 구출 참여"));
     text("gameDifficulty", config.name);
     text("diceRules", "구조 주사위는 몬스터볼 " + config.balls + "면, 다크라이 1면, 빈 면 " + (5 - config.balls) + "면입니다.");
     text("fragmentRules", config.ordered ? "캠프에서 1~8번 순서대로 반납하며," : "캠프에서 순서에 상관없이 8개를 반납하며,");
