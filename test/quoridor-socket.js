@@ -22,5 +22,13 @@ const connect=url=>new Promise(res=>{const s=io(url+'/quoridor',{forceNew:true,t
   assert((await ack(th,'command',{type:'start'})).ok);await new Promise(r=>setTimeout(r,60));assert(clock&&clock.ms<=300&&clock.limit===0.3,'사람 차례 남은 시간 전달');
   await new Promise(r=>setTimeout(r,500));assert.equal(troom.game.revision,1,'시간 초과로 자동 한 수');assert(troom.game.lastAction.timeout);assert.equal(troom.game.turn,1);
   await ack(th,'command',{type:'close'});}
- console.log('쿼리도 2인·권한·복구·정원·AI 실제 차례·예약 취소·혼자 대결·차례 시간 제한 검사 통과');
+ // 일시정지: 선생님만, 멈춘 동안 시간이 흐르지 않고 학생 수도 막힘, 다시 시작하면 남은 시간부터
+ {const ph=await connect(url),pr=await ack(ph,'create',{});const ps=await connect(url);await ack(ps,'join',{code:pr.code,name:'화장실'});
+  const proom=quoridorRooms.get(pr.code);await ack(ph,'command',{type:'addAI'});await ack(ps,'command',{type:'ready'});assert((await ack(ph,'command',{type:'pause'})).error,'대기실에서는 일시정지 없음');
+  proom.turnLimit=0.3;assert((await ack(ph,'command',{type:'start'})).ok);assert((await ack(ps,'command',{type:'pause'})).error,'학생은 멈출 수 없음');
+  assert((await ack(ph,'command',{type:'pause'})).ok);assert(proom.paused);await new Promise(r=>setTimeout(r,500));assert.equal(proom.game.revision,0,'멈춘 동안 시간 초과 없음');
+  assert((await ack(ps,'command',{type:'move',r:7,c:4})).error,'멈춘 동안 수를 둘 수 없음');
+  assert((await ack(ph,'command',{type:'pause'})).ok);assert(!proom.paused);await new Promise(r=>setTimeout(r,500));assert.equal(proom.game.revision,1,'다시 시작 후 시간 초과');
+  await ack(ph,'command',{type:'pause'});await ack(ph,'command',{type:'reset'});assert(!proom.paused,'대기실로 가면 일시정지 해제');await ack(ph,'command',{type:'close'});}
+ console.log('쿼리도 2인·권한·복구·정원·AI 실제 차례·예약 취소·혼자 대결·차례 시간 제한·일시정지 검사 통과');
 }finally{clients.forEach(s=>s.disconnect());server.close();}process.exit(0)})().catch(e=>{console.error(e);process.exit(1)});

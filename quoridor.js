@@ -8,7 +8,7 @@ function attach(io){
   const clean=v=>String(v||'플레이어').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,12)||'플레이어';
   const cancel=r=>{clearTimeout(timers.get(r.code));timers.delete(r.code);clearTimeout(turnTimers.get(r.code)?.timer);turnTimers.delete(r.code);};
   function schedule(r){
-    if(timers.has(r.code)||!r.game||r.game.status!=='playing'||!r.game.players[r.game.turn].ai)return;
+    if(timers.has(r.code)||r.paused||!r.game||r.game.status!=='playing'||!r.game.players[r.game.turn].ai)return;
     if(!r.host&&!r.players.some(p=>!p.ai&&p.socket))return;
     const game=r.game,revision=game.revision;
     const timer=setTimeout(()=>{timers.delete(r.code);
@@ -23,18 +23,23 @@ function attach(io){
     let t=turnTimers.get(r.code);
     if(!t||t.game!==g||t.revision!==g.revision){
       clearTimeout(t?.timer);
-      t={game:g,revision:g.revision,deadline:Date.now()+limit*1000};
+      t={game:g,revision:g.revision,left:limit*1000};turnTimers.set(r.code,t);
+    }
+    // 일시정지 중에는 남은 시간을 그대로 보관하고, 다시 시작하면 그만큼 다시 센다
+    if(r.paused){if(t.timer){clearTimeout(t.timer);t.timer=null;t.left=Math.max(0,t.deadline-Date.now());}return {limit,ms:t.left,revision:g.revision,paused:true};}
+    if(!t.timer){
+      t.deadline=Date.now()+t.left;
       t.timer=setTimeout(()=>{
-        if(rooms.get(r.code)!==r||r.game!==g||g.revision!==t.revision||g.status!=='playing')return;
+        if(rooms.get(r.code)!==r||r.game!==g||g.revision!==t.revision||g.status!=='playing'||r.paused)return;
         if(!r.host&&!r.players.some(p=>!p.ai&&p.socket))return;
         const req=Q.chooseAI(g);if(req&&!Q.action(g,g.turn,req)&&g.lastAction)g.lastAction.timeout=true;
         publish(r);
-      },limit*1000);
-      t.timer.unref?.();turnTimers.set(r.code,t);
+      },t.left);
+      t.timer.unref?.();
     }
     return {limit,ms:Math.max(0,t.deadline-Date.now()),revision:g.revision};
   }
-  function publish(r){const clock=turnClock(r);ns.to(r.code).emit('update',{code:r.code,solo:r.solo,turnLimit:r.turnLimit??TURN_LIMIT,clock,players:r.players.map(({key,socket,...p})=>({...p,connected:!!p.ai||!!socket})),game:r.game});schedule(r);}
+  function publish(r){const clock=turnClock(r);ns.to(r.code).emit('update',{code:r.code,solo:r.solo,paused:!!r.paused,turnLimit:r.turnLimit??TURN_LIMIT,clock,players:r.players.map(({key,socket,...p})=>({...p,connected:!!p.ai||!!socket})),game:r.game});schedule(r);}
   function addAI(r){r.players.push({id:secret().slice(0,10),name:'AI 상대',gender:'girl',ai:true,ready:true});}
   ns.on('connection',s=>{
     s.on('create',(d,cb=()=>{})=>{
@@ -69,12 +74,14 @@ function attach(io){
       if(d?.type==='addAI'&&host&&!r.game){if(r.players.length>=2)error='두 자리가 모두 찼어요.';else addAI(r);}
       else if(d?.type==='kick'&&host&&!r.game){const target=r.players.find(a=>a.id===d.id);if(target&&target.id!==s.data.playerId){if(target.socket){const old=ns.sockets.get(target.socket);if(old){old.leave(r.code);old.data.playerId=null;old.emit('closed','대기실에서 나왔습니다.');}}r.players=r.players.filter(a=>a!==target);}else error='이 플레이어는 내보낼 수 없어요.';}
       else if(d?.type==='swap'&&host&&!r.game&&r.players.length===2){r.players.reverse();}
+      else if(d?.type==='pause'&&host&&r.game?.status==='playing'){r.paused=!r.paused;if(r.paused){clearTimeout(timers.get(r.code));timers.delete(r.code);}}
       else if(d?.type==='timer'&&host&&!r.game){r.turnLimit=(r.turnLimit??TURN_LIMIT)?0:TURN_LIMIT;}
       else if(d?.type==='gender'&&!r.game){const target=r.players.find(a=>a.id===(d.id||p?.id));if(!['boy','girl'].includes(d.gender)||!target||!(target===p||(host&&target.ai)))error='내 캐릭터만 바꿀 수 있어요.';else target.gender=d.gender;}
       else if(d?.type==='ready'&&p&&!r.game){p.ready=!p.ready;}
       else if(d?.type==='name'&&p&&!r.game){p.name=clean(d.name);}
       else if(d?.type==='start'&&host&&!r.game){if(r.players.length!==2||r.players.some(a=>!a.ready||(!a.ai&&!a.socket)))error='두 명이 모두 준비하면 시작할 수 있어요.';else r.game=Q.create(r.players.map(({id,name,gender,ai})=>({id,name,gender,ai:!!ai})));}
-      else if(d?.type==='reset'&&(host||(p&&r.game?.status==='won'))){cancel(r);r.game=null;r.players.forEach(a=>a.ready=!!a.ai||r.solo);}
+      else if(d?.type==='reset'&&(host||(p&&r.game?.status==='won'))){cancel(r);r.game=null;r.paused=false;r.players.forEach(a=>a.ready=!!a.ai||r.solo);}
+      else if(p&&r.game&&r.paused)error='선생님이 잠깐 멈췄어요. 다시 시작하면 이어서 해요.';
       else if(p&&r.game){const i=r.game.players.findIndex(a=>a.id===p.id);error=Q.action(r.game,i,d);}
       else error='지금 할 수 없는 행동이에요.';
       cb({ok:!error,error});publish(r);

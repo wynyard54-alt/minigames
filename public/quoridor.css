@@ -90,3 +90,14 @@ body.student #start{display:none}
 .q-confetti{position:fixed;inset:0;pointer-events:none;z-index:2147483647;overflow:hidden}.q-confetti i{position:absolute;top:-20px;width:10px;height:14px;border-radius:2px;animation:q-fall linear forwards}
 @keyframes q-fall{to{transform:translateY(110vh) rotate(720deg)}}
 @media(prefers-reduced-motion:reduce){.q-flag b,.q-win-pawn,.turn-timer.urgent{animation:none}}
+/* 일시정지(선생님만) */
+.board-wrap{position:relative}.q-pause{position:absolute;inset:0;z-index:3;border-radius:14px;background:#07101ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.q-pause b{font-size:clamp(28px,6vw,52px);color:#ffe184}.q-pause span{color:#dfe8e4;font-size:18px}
+#pause.on{background:#ffdd57;color:#20241f;border-color:#8b701d;box-shadow:0 3px 0 #806317}
+/* 대기실 규칙·팁: 항상 펼쳐서 보여 줌 */
+.q-rules{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:16px 20px!important}.q-rules h3{margin:0 0 6px;font-size:18px;color:#ffe184}
+.q-rules ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}.q-rules li{font-size:14.5px;line-height:1.45;color:#dfe8e4}.q-rules b{color:#fff}
+.q-rules .tips li{padding-left:14px;position:relative}.q-rules .tips li::before{content:'•';position:absolute;left:2px;color:#ffe184}
+@media(max-width:760px){.q-rules{grid-template-columns:1fr;gap:12px;padding:14px!important}.q-rules li{font-size:14px}}
+body:not(.student) .q-team{flex:none}body:not(.student) .q-team{order:1}body:not(.student) .q-rules{order:2}body:not(.student) .q-bottom{order:3}
+@media(min-width:761px){body:not(.student) .q-bottom{gap:8px;padding:12px 18px}body:not(.student) .q-main{gap:14px}body:not(.student) .q-rules li{font-size:14px;line-height:1.4}body:not(.student) .q-rules ul{gap:4px}}
