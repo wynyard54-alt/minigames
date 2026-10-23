@@ -40,6 +40,12 @@
     im.className = cls || "";
     return im;
   };
+  function cardSurface(src, alt, cls) {
+    const surface = document.createElement("span");
+    surface.className = "card-surface " + cls;
+    surface.append(image(src, alt, "card-art"));
+    return surface;
+  }
   const pawn = (p) => `${D.partners[p.partner].color}-${p.stage || 0}.webp`;
   function mapPawn(p) {
     const src = pawn(p), im = image(src, p.name, "pawn"), bounds = D.pawnBounds[src];
@@ -971,7 +977,7 @@
     $("card").replaceChildren();
     const face = g.card !== null;
     $("card").append(
-      image(
+      cardSurface(
         face ? "card-" + g.card + ".webp" : "card-back.webp",
         face ? "출현 카드" : "출현 카드 뒷면",
         "card-mini",
@@ -1121,13 +1127,14 @@
     if (withCard) {
       // 뒷면이 먼저 나오고 가로로 '휙' 뒤집혀 앞면 (입체 회전 없이 가로 크기만 바꿔 폰에서도 안 깨짐)
       const front = "assets/ghost/card-" + g.card + ".webp";
-      const im = image("card-back.webp", "출현 카드", "reveal-card");
+      const surface = cardSurface("card-back.webp", "출현 카드", "reveal-card");
+      const im = surface.querySelector("img");
       const pre = new Image();
       pre.src = front;
-      $("revealCard").append(im);
+      $("revealCard").append(surface);
       await Promise.race([Promise.all([im.decode(), pre.decode()]).catch(() => {}), wait(500)]);
       if (!current()) return;
-      await im
+      await surface
         .animate(
           [
             { opacity: 0, transform: "translateY(-12%) scale(.85)" },
@@ -1138,10 +1145,10 @@
         .finished.catch(() => {});
       if (!current()) return;
       sfx("cardFlip");
-      await im.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: 130, easing: "ease-in" }).finished.catch(() => {});
+      await surface.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: 130, easing: "ease-in" }).finished.catch(() => {});
       if (!current()) return;
       im.src = front;
-      await im
+      await surface
         .animate(
           [
             { transform: "scaleX(0)" },
@@ -1160,7 +1167,7 @@
       if (!current()) return;
       await flyTo(
         $("revealCard").firstElementChild,
-        $("card").querySelector("img"),
+        $("card").querySelector(".card-surface"),
       );
       if (!current()) return;
     }

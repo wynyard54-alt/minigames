@@ -369,7 +369,7 @@ main {
   font-size: 12px;
 }
 .revealing #dice,
-.revealing #card img {
+.revealing #card .card-surface {
   visibility: hidden;
 }
 #actions {
@@ -1696,4 +1696,49 @@ dialog.story-dialog,
 #reveal.many-dice-reveal .reveal-note {
   top: max(8px, calc(50% - 205px)); width: min(90vw, 420px);
   box-sizing: border-box; margin: 0;
+}
+
+
+/* 그림 파일은 유지하고, 실물 카드의 얇은 단면·둥근 모서리·코팅만 표시한다. */
+.card-surface {
+  display: block;
+  position: relative;
+  isolation: isolate;
+  flex-shrink: 0;
+  aspect-ratio: 5 / 9;
+  border-radius: 7% / 4%;
+  background: #f5f0df;
+  overflow: hidden;
+  box-shadow: 0 1px 0 #e8e2d1, 0 2px 0 #b8b09d, 0 3px 0 #716b5f,
+    0 5px 8px #0005, 0 11px 20px #0005;
+}
+.card-surface .card-art {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+.card-surface::before,
+.card-surface::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: inherit; pointer-events: none;
+}
+.card-surface::before {
+  z-index: 1;
+  box-shadow: inset 1px 1px 0 #ffffffc0, inset -1px -1px 0 #1a243b70;
+}
+.card-surface::after {
+  z-index: 2;
+  background: linear-gradient(115deg, #ffffff26, #ffffff08 26%, transparent 48%, #ffffff03 75%, #ffffff12);
+}
+#card .card-surface.card-mini { width: auto; height: 94px; border-radius: 7% / 4%; }
+.card-surface.reveal-card {
+  width: auto; height: min(248px, 42svh); max-width: 100%;
+  border-radius: 7% / 4%; filter: none;
+}
+@media (max-width: 850px) {
+  #card .card-surface.card-mini { width: auto; height: 80px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .card-surface.reveal-card { height: min(204px, 42svh); }
 }
