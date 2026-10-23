@@ -27,13 +27,13 @@ assert(g.regions.every(r=>r.mobs.length===0));
 g.phase='act';g.active.node='r1';g.regions[0].mobs=['나인테일'];
 g.action('a',{type:'battle'});assert(g.active.blessed,'일반 배틀에 축복 소모 안 함');
 g.next();g.next();g.next();assert(g.active.blessed,'차례가 바뀌어도 유지');
-// 실패할 주사위여도 두 명 참여시 자동 성공, 랜덤 주사위는 사용하지 않음.
+// 축복 소유자만 다크라이 면 확정, 다른 참가자는 평소대로 굴린다.
 function darkSetup(){const e=make();e.phase='act';e.active.node='r1';e.regions[0].mobs=['가','나','다'];e.regions[0].dark=true;return e;}
 g=darkSetup();g.active.blessed=true;
 assert(g.action('a',{type:'battle'}));assert(g.active.blessed,'혼자서는 축복도 사용 불가');
-g.players[1].node='r1';g.rng=()=>{throw Error('확정 구조에 난수 사용 금지');};
+g.players[1].node='r1';let randomRolls=0;g.rng=()=>{randomRolls++;return 0.99;};
 assert.equal(g.action('a',{type:'battle'}),undefined);assert(g.battle.success);assert.equal(g.battle.blessedBy,'a');
-assert.deepEqual(g.dice,[]);assert(!g.active.blessed);assert(!g.regions[0].dark);assert.equal(g.regions[0].mobs.length,0);
+assert.deepEqual(g.dice,[2,5]);assert.equal(randomRolls,1);assert(!g.active.blessed);assert(!g.regions[0].dark);assert.equal(g.regions[0].mobs.length,0);
 assert.equal(g.active.rescues,3);assert.equal(g.players[1].rescues,3);
 // 다른 사람 차례에 축복 소유자가 협동해도 소모/성공. 두 명 보유면 하나만 소모.
 g=darkSetup();g.players[1].node='r1';g.players[1].blessed=true;

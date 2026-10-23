@@ -1666,4 +1666,34 @@ dialog.story-dialog,
   box-shadow: 0 0 6px #eecb58; text-shadow: 0 0 3px #fff4af;
 }
 
-.blessing-orb { font-size: 88px; color: #ffe184; text-shadow: 0 0 25px #edbf55; }
+
+.battle-participation { flex-basis: 100%; margin: 2px 0 6px; font-size: 13px; color: #ffe184; }
+/* 3~6개 주사위는 두 줄로 고정 배치해 카드 슬롯 밖으로 밀리지 않게 한다. */
+#dice.many-dice {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  --die-size: 22px; gap: 0; align-content: center;
+}
+#dice.many-dice .die-space { width: calc(var(--die-size) + 2px); height: calc(var(--die-size) + 2px); }
+#dice.many-dice .die-unit small { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 12px; }
+#reveal.many-dice-reveal .reveal-stage { grid-template-columns: minmax(0, 1fr); }
+#reveal.many-dice-reveal #revealCard { display: none; }
+#revealDice.many-dice {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(90vw, 380px); gap: 16px 8px; --die-size: clamp(32px, 12svh, 64px);
+}
+#revealDice.many-dice .die-unit small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blessing-die .die-space { position: relative; }
+.blessing-die .die-space::before {
+  content: ""; position: absolute; inset: 3px; border: 2px solid #ffe184;
+  border-radius: 50%; box-shadow: 0 0 16px #ffe184, inset 0 0 10px #ffe18488;
+  pointer-events: none;
+}
+.die-moon { position: absolute; right: -3px; top: -8px; color: #ffe184; font-size: 22px; text-shadow: 0 0 8px #ffd76d; }
+.die-unit.blessing-die.other-die { filter: none; opacity: .85; }
+@media (max-height: 500px) and (orientation: landscape) {
+  #dice.many-dice { --die-size: 22px; }
+}
+#reveal.many-dice-reveal .reveal-note {
+  top: max(8px, calc(50% - 205px)); width: min(90vw, 420px);
+  box-sizing: border-box; margin: 0;
+}

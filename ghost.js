@@ -251,18 +251,14 @@ class Expedition {
     }
     if (req.type === "battle" && this.phase === "act" && !this.battle) {
       if (!r || !r.mobs.length) return "이곳에는 폭주 포켓몬이 없어요.";
-      const allies = this.players.filter(
-        (o) => o.node === p.node && o.id !== p.id,
-      );
-      let team = [p];
-      if (allies.length) {
-        const helper = allies.find((o) => o.id === req.helper) || allies.find(o => o.blessed) || allies[0];
-        team.push(helper);
-      }
+      const team = D.battleTeam(this.players, p.id, this.difficulty, req.helper);
       if (r.dark && team.length < 2)
         return "다크라이는 두 명이 함께 있어야 해결할 수 있어요.";
       const blessed = r.dark ? team.find(o => o.blessed) : null;
-      this.dice = blessed ? [] : team.map(() => Math.floor(this.rng() * 6));
+      // 축복 소유자의 면은 서버에서 확정, 나머지는 평소대로 굴린다.
+      this.dice = team.map(o => o.id === blessed?.id
+        ? D.difficulties[this.difficulty].balls
+        : Math.floor(this.rng() * 6));
       this.battle = {
         participants: team.map((o) => ({ id: o.id, name: o.name })),
         dark: !!r.dark,
@@ -376,7 +372,7 @@ function attach(io) {
     if (!g?.active.ai || ["won", "lost"].includes(g.phase) ||
         (!r.host && !r.players.some(p => !p.ai && p.socket))) return;
     const phase = g.phase, active = g.active.id, round = g.round;
-    const delay = phase === "move" ? 3000 : phase === "end" ? 2400 : 1400;
+    const delay = phase === "move" ? 3000 : phase === "end" ? (g.battle?.blessedBy ? 3000 : 2400) : 1400;
     const timer = setTimeout(() => {
       aiTimers.delete(r.code);
       if (rooms.get(r.code) !== r || r.game !== g || g.active.id !== active ||

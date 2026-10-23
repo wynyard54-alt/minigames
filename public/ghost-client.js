@@ -273,7 +273,7 @@
     const rolled = b.roll !== null && (a.roll !== b.roll || a.turn !== b.turn || a.round !== b.round);
     const battled = b.battle && JSON.stringify(a.battle) !== JSON.stringify(b.battle);
     if (calm()) return 0;
-    return rolled ? 1150 : battled ? (b.battle.extra ? 1900 : 1000) : 0;
+    return rolled ? 1150 : battled ? (b.battle.blessedBy ? 2100 : b.battle.extra ? 1900 : 1000) : 0;
   }
   const pawnPos = (node) => {
     const n = D.nodes[node];
@@ -427,7 +427,7 @@
     const rolled = b.roll !== null && (a.roll !== b.roll || a.turn !== b.turn || a.round !== b.round);
     const battled = b.battle && JSON.stringify(a.battle) !== JSON.stringify(b.battle);
     // 주사위·카드 공개 연출이 끝날 즈음 결과 소리를 낸다
-    const after = rolled ? 1150 : battled ? (b.battle.extra ? 1900 : 1000) : 0;
+    const after = rolled ? 1150 : battled ? (b.battle.blessedBy ? 2100 : b.battle.extra ? 1900 : 1000) : 0;
     const darkNew = b.regions.some((r, i) => r.dark && !a.regions[i].dark);
     const mobsNew = b.regions.reduce((s, r) => s + r.mobs.length, 0) > a.regions.reduce((s, r) => s + r.mobs.length, 0);
     if (rolled && b.card === 30) later(after - 300, () => sfx("cardFlip"));
@@ -630,7 +630,7 @@
           (o) => o.node === p.node && o.id !== p.id,
         );
         let select;
-        if (helpers.length) {
+        if (helpers.length && g.difficulty !== "easy") {
           select = document.createElement("select");
           select.setAttribute("aria-label", "함께 배틀할 친구");
           helpers.forEach((o) => {
@@ -647,6 +647,17 @@
             renderTable(g);
           };
           $("actions").append(select);
+        }
+        if (g.difficulty === "easy") {
+          const participants = D.battleTeam(g.players, p.id, g.difficulty);
+          const notice = document.createElement("p");
+          notice.className = "battle-participation";
+          notice.textContent = r.dark && participants.length < 2
+            ? "다크라이는 한 명 이상 더 모여야 해요."
+            : "이 지역 탐사대 " + participants.length + "명 전원 참여 · 주사위 " + participants.length + "개";
+          if (r.dark && participants.some(o => o.blessed) && participants.length >= 2)
+            notice.textContent += " · 초승달의 축복!";
+          $("actions").append(notice);
         }
         $("actions").append(
           button(
@@ -742,12 +753,23 @@
       .getAnimations({ subtree: true })
       .forEach((animation) => animation.cancel());
     show("reveal", false);
+    $("reveal").classList.remove("many-dice-reveal");
+    $("revealDice").classList.remove("many-dice");
     $("tableTray").classList.remove("revealing");
     $("revealDice").replaceChildren();
     $("revealCard").replaceChildren();
     text("revealNote", "");
   }
   const combatSymbol = (value) => D.combatSymbol(value, room?.game?.difficulty || "hard");
+  function markBlessedDie(die) {
+    if (!die || die.classList.contains("blessing-die")) return;
+    die.classList.add("blessing-die");
+    const moon = document.createElement("span");
+    moon.className = "die-moon";
+    moon.textContent = "☾";
+    moon.setAttribute("aria-label", "초승달의 축복");
+    die.querySelector(".die-space").append(moon);
+  }
   function makeDie(v, owner) {
     const unit = document.createElement("div");
     unit.className = "die-unit";
@@ -915,19 +937,15 @@
     text("battleNote", "");
     $("dice").title =
       "몬스터볼: 일반 구조 성공 · 다크라이: 다크라이 해결 성공 · 빈 면: 빗나감";
-    if (g.battle?.blessedBy) {
-      const result = document.createElement("p");
-      result.className = "blessing-status";
-      result.textContent = "☾ 초승달의 축복 · 다크라이 확정 구조!";
-      $("dice").append(result);
-      text("battleNote", "축복 1회 사용 · 아래 포켓몬 3마리도 모두 구조");
-    } else if (g.battle) {
+    if (g.battle) {
       g.battle.participants.forEach((owner, i) => {
         const extra = g.battle.extra?.id === owner.id ? g.battle.extra : null;
-        $("dice").append(
-          makeDie(combatSymbol(extra ? extra.value : g.dice[i]), owner),
-        );
+        const die = makeDie(combatSymbol(extra ? extra.value : g.dice[i]), owner);
+        if (owner.id === g.battle.blessedBy) markBlessedDie(die);
+        $("dice").append(die);
       });
+      if (g.battle.blessedBy)
+        text("battleNote", "☾ 초승달의 축복 · 다크라이 확정 구조!");
       if (g.battle.extra) {
         const extra = g.battle.extra;
         const i = g.battle.participants.findIndex((o) => o.id === extra.id);
@@ -941,19 +959,14 @@
         );
       }
     } else if (g.phase === "act" && region?.mobs.length) {
-      const helpers = g.players.filter(
-        (o) => o.node === p.node && o.id !== p.id,
-      );
-      const helper = helpers.find((o) => o.id === selectedHelper) || helpers.find(o => o.blessed) || helpers[0];
-      [p, ...(helper ? [helper] : [])].forEach((owner) =>
-        $("dice").append(makeDie("?", owner)),
-      );
-      text(
-        "battleNote",
-        helper ? "각자 주사위 1개 · 최대 2명 협동" : "내 구조 주사위 1개",
-      );
+      const participants = D.battleTeam(g.players, p.id, g.difficulty, selectedHelper);
+      participants.forEach(owner => $("dice").append(makeDie("?", owner)));
+      text("battleNote", g.difficulty === "easy"
+        ? "이 지역 " + participants.length + "명 전원 참여 · 각자 1개"
+        : participants.length > 1 ? "각자 주사위 1개 · 최대 2명 협동" : "내 구조 주사위 1개");
     } else if (g.roll !== null) $("dice").append(makeDie(g.roll, p));
     else $("dice").textContent = "주사위를 기다리는 중";
+    $("dice").classList.toggle("many-dice", $("dice").querySelectorAll(".die-unit").length > 2);
     $("card").replaceChildren();
     const face = g.card !== null;
     $("card").append(
@@ -1057,19 +1070,6 @@
     if (!host && g.players[g.turn].id === me?.id)
       $("board").scrollIntoView({ block: "start", behavior: "instant" });
     $("tableTray").classList.add("revealing");
-    if (g.battle?.blessedBy) {
-      const moon = document.createElement("div");
-      moon.className = "blessing-orb";
-      moon.textContent = "☾";
-      $("revealDice").replaceChildren(moon);
-      text("revealNote", "초승달의 축복 · 다크라이 확정 구조!");
-      show("reveal", true);
-      await wait(1500);
-      if (!current()) return;
-      cancelReveal();
-      render();
-      return;
-    }
     if (g.battle)
       $("revealDice").replaceChildren(
         ...g.battle.participants.map((owner, i) =>
@@ -1080,6 +1080,9 @@
       $("revealDice").replaceChildren(
         ...Array.from($("dice").children, (el) => el.cloneNode(true)),
       );
+    const many = $("revealDice").querySelectorAll(".die-unit").length > 2;
+    $("revealDice").classList.toggle("many-dice", many);
+    $("reveal").classList.toggle("many-dice-reveal", many);
     $("revealDice")
       .querySelectorAll(".die-cube")
       .forEach((el) => el.classList.add("rolling"));
@@ -1088,6 +1091,17 @@
     await wait(900);
     if (!current()) return;
     sfx("diceLand");
+    if (g.battle?.blessedBy) {
+      const die = Array.from($("revealDice").children).find(el => el.dataset.owner === g.battle.blessedBy);
+      markBlessedDie(die);
+      text("revealNote", "초승달의 축복! 다크라이 구조 성공!");
+      die.querySelector(".die-cube").animate(
+        [{ transform: "rotate(-14deg) scale(.9)" }, { transform: "rotate(0) scale(1.12)" }, { transform: "scale(1)" }],
+        { duration: 650, easing: "ease-out" },
+      );
+      await wait(1100);
+      if (!current()) return;
+    }
     if (g.battle?.extra) {
       const extra = g.battle.extra,
         owner = g.battle.participants.find((o) => o.id === extra.id);
