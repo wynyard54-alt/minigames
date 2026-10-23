@@ -24,3 +24,18 @@ for(let first=0;first<2;first++){
  assert.equal(g.status,'won','AI끼리 끝없이 왕복하지 않음');assert(g.players.every(p=>p.remaining>=0));
 }
 console.log('쿼리도 이동·직선/대각 점프·벽 중복/교차/길 봉쇄·승패·AI 완주 검사 통과');
+// 어려움도 공개 정보만 읽고 원본 상태를 건드리지 않으며, 즉시 승리/상대 승리 차단을 우선한다.
+for(const side of [0,1]){
+ const h=make();h.turn=side;h.players[side].r=side?7:1;h.players[1-side].c=0;
+ const saved=JSON.stringify(h),req=Q.chooseHardAI(h);assert.equal(JSON.stringify(h),saved);assert.equal(Q.action(h,side,req),'');assert.equal(h.winner,side);
+ const danger=make();danger.turn=side;danger.players[1-side].r=side?1:7;danger.players[1-side].c=0;
+ assert.equal(Q.action(danger,side,Q.chooseHardAI(danger)),'');assert(!Q.moves(danger,1-side).some(m=>m.r===(side?0:8)),'상대 즉시 도착 차단');
+}
+console.log('어려움 AI 양 진영 즉시 승리·상대 도착 차단·원본 보존 검사 통과');
+// 동일 시작판에서 진영을 바꿔 기존 AI와 대결: 합법 수를 유지하며 양쪽에서 완주/승리.
+for(const hardSide of [0,1]){
+ const match=make();let turn=0;
+ while(match.status==='playing'&&turn++<160){const req=(match.turn===hardSide?Q.chooseHardAI:Q.chooseAI)(match);assert.equal(Q.action(match,match.turn,req),'');}
+ assert.equal(match.status,'won');assert.equal(match.winner,hardSide,'기존 AI 대비 양 진영 기준 대결');
+}
+console.log('어려움 AI 기존 AI와 진영 교대 대결 2판 승리 확인');

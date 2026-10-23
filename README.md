@@ -176,4 +176,4 @@ AI는 서버에서 같은 주사위·이동·구조 규칙으로 자기 차례�
 - 대기실에 **게임 규칙·이기는 팁**을 항상 펼쳐서 보여 줌(선생님 화면은 두 칸, 폰은 아래쪽).
 - 선생님은 진행 중 대기실 복귀 가능. 종료 후 학생도 대기실 복귀 가능. 같은 브라우저 새로고침/재접속은 복구되지만 서버 재시작 시 방/진행은 초기화됩니다.
 
-독립 `/quoridor` Socket.IO 채널, `quoridor.js` 방/AI 예약, `public/quoridor-engine.js` 공용 규칙/AI, `quoridor-client.js` 입력/캔버스/연출. 기존 게임과 같은 `npm start`/`battle update`로 실행합니다. AI는 별도 모델·인터넷 API 없이 서버에서 거리/합법 벽을 비교합니다. 그림은 WebP 약650KB, 원본 큰 PNG는 저장소에 넣지 않습니다.
+독립 `/quoridor` Socket.IO 채널, `quoridor.js` 방/AI 예약, `public/quoridor-engine.js` 공용 규칙/AI, `quoridor-client.js` 입력/캔버스/연출. 기존 게임과 같은 `npm start`/`battle update`로 실행합니다. AI는 별도 모델·인터넷 API 없이 서버에서 거리/합법 벽을 비교합니다. 대기실에서 선생님이 **쉬움(기존 AI)** / **어려움(내 후보→상대 대응→내 재대응을 탐색)**을 선택할 수 있습니다. 기본은 쉬움이며 경기 중에는 변경하지 않습니다. 방금 이동한 도착 칸이나 설치한 벽은 진영 색으로 잠깐 강조됩니다. 그림은 WebP 약650KB, 원본 큰 PNG는 저장소에 넣지 않습니다.

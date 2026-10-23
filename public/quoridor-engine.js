@@ -67,6 +67,27 @@
       if(n>score+.01){score=n;best={type:'wall',wall:w};}
     }return best;
   }
-  const api={inside,blocked,moves,distance,wallError,create,action,chooseAI};
+  // 어려움: 내 후보6개→상대 유망 대응3개→내 재대응까지 읽는 선택적 탐색. 기존 AI는 쉬움으로 유지.
+  function chooseHardAI(s){
+    if(s.status!=='playing')return null;const side=s.turn;
+    const fork=(v,req)=>{const next={...v,players:v.players.map(p=>({...p})),walls:v.walls.slice()};action(next,v.turn,req);return next;};
+    const value=(v,i)=>{if(v.status==='won')return v.winner===i?10000:-10000;
+      const steps=k=>Math.min(...moves(v,k).map(m=>1+distance(v,k,m)));
+      return steps(1-i)-steps(i)+.45*(v.players[i].remaining-v.players[1-i].remaining);
+    };
+    const choices=v=>{const i=v.turn,goal=i===0?0:8,out=[];
+      for(const m of moves(v,i)){const req={type:'move',r:m.r,c:m.c},next=fork(v,req);out.push({req,next,score:value(next,i)});if(m.r===goal)return [out[out.length-1]];}
+      if(v.players[i].remaining)for(const o of ['h','v'])for(let r=0;r<8;r++)for(let c=0;c<8;c++){const wall={o,r,c};if(wallError(v,wall))continue;const req={type:'wall',wall},next=fork(v,req);out.push({req,next,score:value(next,i)});}
+      return out.sort((a,b)=>b.score-a.score);
+    };
+    const candidates=choices(s);if(candidates[0]?.next.status==='won')return candidates[0].req;
+    let best=null,score=-Infinity;
+    for(const c of candidates.slice(0,6)){const replies=choices(c.next).slice(0,3);let worst=Infinity;
+      for(const r of replies){if(r.next.status==='won'){worst=-10000;break;}
+        const response=chooseAI(r.next),third=response?fork(r.next,response):r.next;worst=Math.min(worst,value(third,side));}
+      const n=(replies.length?worst:value(c.next,side))+c.score*.025;if(n>score){score=n;best=c.req;}}
+    return best;
+  }
+  const api={inside,blocked,moves,distance,wallError,create,action,chooseAI,chooseHardAI};
   if(typeof module!=='undefined')module.exports=api;else root.Quoridor=api;
 })(typeof window==='undefined'?globalThis:window);

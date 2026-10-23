@@ -16,10 +16,10 @@ const connect=url=>new Promise(res=>{const s=io(url+'/quoridor',{forceNew:true,t
  const solo=await connect(url),sr=await ack(solo,'create',{solo:true,name:'혼자'});assert(sr.id);assert((await ack(solo,'command',{type:'gender',gender:'girl'})).ok);assert((await ack(solo,'command',{type:'start'})).ok);assert((await ack(solo,'command',{type:'move',r:7,c:4})).ok);await ack(solo,'command',{type:'reset'});await new Promise(r=>setTimeout(r,1300));assert.equal(quoridorRooms.get(sr.code).game,null,'리셋 후 예약 취소');await ack(solo,'command',{type:'start'});quoridorRooms.get(sr.code).game.status='won';assert((await ack(solo,'command',{type:'reset'})).ok);await ack(solo,'command',{type:'close'});
  // 차례 시간 제한: 기본 30초 켜짐, 선생님만 끄고 켬, 시간이 지나면 AI가 대신 한 수(시간 초과 표시)
  {const th=await connect(url),tr=await ack(th,'create',{});const st=await connect(url);await ack(st,'join',{code:tr.code,name:'느린학생'});
-  const troom=quoridorRooms.get(tr.code);assert.equal(troom.turnLimit??30,30);assert((await ack(st,'command',{type:'timer'})).error);
+  const troom=quoridorRooms.get(tr.code);assert.equal(troom.turnLimit??30,30);assert((await ack(st,'command',{type:'aiLevel',level:'hard'})).error);assert((await ack(th,'command',{type:'aiLevel',level:'bad'})).error);assert((await ack(th,'command',{type:'aiLevel',level:'hard'})).ok);assert.equal(troom.aiLevel,'hard');assert((await ack(st,'command',{type:'timer'})).error);
   assert((await ack(th,'command',{type:'timer'})).ok);assert.equal(troom.turnLimit,0);assert((await ack(th,'command',{type:'timer'})).ok);assert.equal(troom.turnLimit,30);
   await ack(th,'command',{type:'addAI'});await ack(st,'command',{type:'ready'});troom.turnLimit=0.3;let clock;th.on('update',u=>clock=u.clock);
-  assert((await ack(th,'command',{type:'start'})).ok);await new Promise(r=>setTimeout(r,60));assert(clock&&clock.ms<=300&&clock.limit===0.3,'사람 차례 남은 시간 전달');
+  assert((await ack(th,'command',{type:'start'})).ok);assert((await ack(th,'command',{type:'aiLevel',level:'easy'})).error);await new Promise(r=>setTimeout(r,60));assert(clock&&clock.ms<=300&&clock.limit===0.3,'사람 차례 남은 시간 전달');
   await new Promise(r=>setTimeout(r,500));assert.equal(troom.game.revision,1,'시간 초과로 자동 한 수');assert(troom.game.lastAction.timeout);assert.equal(troom.game.turn,1);
   await ack(th,'command',{type:'close'});}
  // 일시정지: 선생님만, 멈춘 동안 시간이 흐르지 않고 학생 수도 막힘, 다시 시작하면 남은 시간부터

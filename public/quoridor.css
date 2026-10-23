@@ -115,3 +115,5 @@ body:not(.student) .q-team{flex:none}body:not(.student) .q-team{order:1}body:not
 .q-wall-stock{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px 5px;margin-top:7px;max-width:230px}
 .q-wall-slot{height:12px;border-radius:3px;background:#08151d55;box-shadow:inset 0 1px 2px #0004}
 .q-wall-slot.full{background-image:url('assets/quoridor/wall-h.webp');background-size:109% 445%;background-position:50% 51.6%;background-repeat:no-repeat;box-shadow:0 1px 2px #0006}
+
+#aiSetting{font-size:12px;flex:1 1 160px;max-width:250px;margin:0}#aiLevel{font-size:14px;padding:8px}.q-ai-info{flex-basis:100%;font-size:12px;color:#c0d4cc;margin:0}.q-ai-info:empty{display:none}
